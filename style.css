@@ -168,6 +168,12 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--green); outl
 .photo-thumb-wrap { position:relative; }
 .photo-del { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:var(--ink); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; }
 .photo-add-btn { width:64px; height:64px; border-radius:var(--radius-sm); border:1.5px dashed var(--gray-mid); color:var(--gray); font-size:20px; display:flex; align-items:center; justify-content:center; background:var(--gray-bg); }
+.photo-thumb-wrap.main .photo-thumb { outline:2px solid var(--green-dark); outline-offset:1px; }
+.photo-main-tag { position:absolute; bottom:3px; left:50%; transform:translateX(-50%); background:var(--green-dark); color:#fff; font-size:9px; font-weight:700; padding:1px 6px; border-radius:6px; white-space:nowrap; pointer-events:none; }
+.photo-move { position:absolute; top:50%; transform:translateY(-50%); width:17px; height:26px; background:rgba(44,44,42,.55); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; }
+.photo-move.l { left:0; border-radius:0 5px 5px 0; }
+.photo-move.r { right:0; border-radius:5px 0 0 5px; }
+.photo-move[disabled] { display:none; }
 
 /* ── 파싱 결과 ── */
 .parse-result { margin-top:16px; }
@@ -238,8 +244,25 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--green); outl
 .sheet-handle { width:40px; height:4px; border-radius:4px; background:var(--gray-mid); margin:6px auto 14px; }
 
 /* ── 상세 모달 ── */
-.d-photos { display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; scroll-snap-type:x mandatory; }
-.d-photos img { width:190px; height:238px; object-fit:cover; border-radius:var(--radius-md); scroll-snap-align:start; flex-shrink:0; cursor:pointer; }
+/* ── 사진 캐러셀 (상세 모달) ── */
+.d-gallery { position:relative; margin-bottom:14px; }
+.d-track { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; border-radius:var(--radius-md); background:var(--cream); scrollbar-width:none; touch-action:pan-y pinch-zoom; }
+.d-track::-webkit-scrollbar { display:none; }
+.d-track img { flex:0 0 100%; width:100%; height:clamp(240px, 56vh, 390px); object-fit:cover; scroll-snap-align:center; cursor:zoom-in; user-select:none; -webkit-user-drag:none; }
+.d-track.dragging { scroll-snap-type:none; }
+.d-track.dragging img { cursor:grabbing; }
+.gal-nav { position:absolute; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; background:rgba(44,44,42,.5); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center; z-index:2; transition:background .15s, opacity .15s; }
+.gal-nav.prev { left:8px; }
+.gal-nav.next { right:8px; }
+.gal-nav:hover { background:rgba(44,44,42,.78); }
+.gal-nav[disabled] { opacity:.22; pointer-events:none; }
+.gal-count { position:absolute; top:10px; right:10px; background:rgba(44,44,42,.55); color:#fff; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:20px; z-index:2; }
+.gal-dots { display:flex; justify-content:center; gap:6px; margin-top:9px; }
+.gal-dot { width:6px; height:6px; border-radius:50%; background:var(--gray-mid); transition:all .2s; }
+.gal-dot.on { width:18px; border-radius:3px; background:var(--green-dark); }
+.d-gallery.single .gal-nav,
+.d-gallery.single .gal-count,
+.d-gallery.single .gal-dots { display:none; }
 .d-nophoto { width:100%; height:130px; border-radius:var(--radius-md); background:var(--cream); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--cream-dark); font-size:12.5px; margin-bottom:14px; }
 .d-nophoto i { font-size:30px; color:var(--orange); }
 .d-head { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
@@ -288,6 +311,24 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--green); outl
 .pick-item.sel { background:var(--green-soft); font-weight:700; }
 .pick-item.sel.f-side { background:var(--peach-soft); }
 
+/* ── 거절 기록 ── */
+.rej-who { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.rej-who-btn { border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:11px 8px; font-size:13px; font-weight:600; color:#5F5E5A; background:var(--white); text-align:center; line-height:1.35; }
+.rej-who-btn .sub { display:block; font-size:10.5px; font-weight:500; color:var(--gray-mid); margin-top:2px; }
+.rej-who-btn.on { border-color:var(--orange); background:var(--orange-soft); color:var(--cream-dark); }
+.rej-item { display:flex; align-items:center; gap:9px; padding:9px 11px; border:1.5px solid var(--line); border-radius:var(--radius-sm); margin-bottom:7px; cursor:pointer; background:var(--white); }
+.rej-item .rej-name { font-size:13.5px; font-weight:700; color:var(--ink); flex-shrink:0; }
+.rej-item .rej-meta { font-size:11px; color:var(--gray-mid); }
+.rej-item .rej-reason { font-size:11.5px; color:var(--gray); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rej-item .rej-body { min-width:0; flex:1; }
+.rej-del { width:26px; height:26px; border-radius:50%; background:var(--gray-bg); color:var(--gray-mid); font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.rej-dir { font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; flex-shrink:0; }
+.rej-dir.out { background:var(--orange-soft); color:var(--cream-dark); }
+.rej-dir.in { background:var(--gray-bg); color:var(--gray); }
+.rej-warn { display:flex; align-items:flex-start; gap:7px; background:var(--orange-soft); color:var(--cream-dark); border-radius:var(--radius-sm); padding:10px 12px; font-size:12.5px; line-height:1.5; margin-bottom:10px; }
+.rej-warn i { font-size:15px; flex-shrink:0; margin-top:1px; }
+.pick-item .rej-tag { display:inline-block; font-size:10px; font-weight:700; color:#A32D2D; background:#FBE9E9; padding:1px 6px; border-radius:20px; margin-left:4px; }
+
 /* ── 매칭 타임라인 ── */
 .tl { margin:8px 0 4px; padding-left:4px; }
 .tl-item { display:flex; gap:11px; position:relative; padding-bottom:14px; }
@@ -328,9 +369,30 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--green); outl
 #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
 /* ── 사진 라이트박스 ── */
-#lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:200; display:none; align-items:center; justify-content:center; }
+#lightbox { position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:200; display:none; align-items:center; justify-content:center; }
 #lightbox.open { display:flex; }
-#lightbox img { max-width:94%; max-height:90%; border-radius:8px; }
+.lb-stage { display:flex; align-items:center; justify-content:center; padding:58px 14px 66px; max-width:100%; max-height:100%; }
+#lightbox img { max-width:min(94vw, 900px); max-height:76vh; border-radius:8px; user-select:none; -webkit-user-drag:none; }
+.lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.14); color:#fff; font-size:26px; display:flex; align-items:center; justify-content:center; z-index:2; transition:background .15s, opacity .15s; }
+.lb-nav.prev { left:14px; }
+.lb-nav.next { right:14px; }
+.lb-nav:hover { background:rgba(255,255,255,.3); }
+.lb-nav[disabled] { opacity:.18; pointer-events:none; }
+.lb-close { position:absolute; top:14px; right:14px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.14); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center; z-index:3; }
+.lb-close:hover { background:rgba(255,255,255,.3); }
+.lb-count { position:absolute; top:24px; left:50%; transform:translateX(-50%); color:#fff; font-size:13px; font-weight:600; z-index:3; }
+.lb-dots { position:absolute; bottom:28px; left:50%; transform:translateX(-50%); display:flex; gap:7px; z-index:3; }
+.lb-dot { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.35); transition:all .2s; }
+.lb-dot.on { width:20px; border-radius:4px; background:#fff; }
+.lb-hint { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); color:rgba(255,255,255,.38); font-size:11px; z-index:3; }
+#lightbox.single .lb-nav,
+#lightbox.single .lb-count,
+#lightbox.single .lb-dots,
+#lightbox.single .lb-hint { display:none; }
+@media (pointer:coarse) {
+  .lb-hint { display:none; }
+  .lb-nav { width:40px; height:40px; font-size:22px; }
+}
 
 /* ── 로그인 게이트 ── */
 #gate { position:fixed; inset:0; background:var(--cream); z-index:400; display:flex; align-items:center; justify-content:center; }

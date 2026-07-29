@@ -54,6 +54,8 @@
         <option value="latest">최신 등록순</option>
         <option value="young">나이 어린순</option>
         <option value="old">나이 많은순</option>
+        <option value="tall">키 큰순</option>
+        <option value="short">키 작은순</option>
         <option value="name">이름순</option>
       </select>
       <button class="view-toggle" id="viewToggle" title="보기 전환"><i class="ti ti-layout-grid"></i></button>
@@ -142,6 +144,7 @@
 
       <div class="form-section">
         <div class="form-section-title"><i class="ti ti-photo"></i> 사진</div>
+        <p class="hint-text" style="margin-top:-4px">맨 앞 사진이 목록에 보이는 <b>대표 사진</b>이에요. 사진 좌우의 화살표로 순서를 바꿀 수 있어요.</p>
         <div class="photo-add-row" id="photoRow">
           <button type="button" class="photo-add-btn" id="photoAddBtn"><i class="ti ti-plus"></i></button>
         </div>
@@ -244,6 +247,42 @@
   </div>
 </div>
 
+<!-- ═══════════ 거절 기록 모달 ═══════════ -->
+<div class="modal-bg" id="rejectModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="view-title" style="margin-bottom:4px" id="rejTitle"><i class="ti ti-heart-broken"></i> 거절 기록</div>
+    <p class="hint-text" id="rejHint">누가 마음을 접었는지 남겨두면, 나중에 같은 조합을 다시 이어주는 실수를 막을 수 있어요.</p>
+
+    <!-- 상대 고르기 (후보 상세에서 직접 추가할 때만 보임) -->
+    <div id="rejPickWrap" class="hidden">
+      <div class="f-field"><label>상대는 누구인가요?</label></div>
+      <div class="pick-list" id="rejPickList"></div>
+      <div style="height:14px"></div>
+    </div>
+
+    <div class="f-field"><label>누가 거절했나요?</label></div>
+    <div class="rej-who" id="rejWho"></div>
+
+    <div style="height:14px"></div>
+    <div class="f-field"><label>어느 단계였나요?</label></div>
+    <div class="filter-row" id="rejStage">
+      <button class="chip active" data-st="profile">프로필 보고</button>
+      <button class="chip" data-st="photo">사진 교환 후</button>
+      <button class="chip" data-st="meet">만나기 전</button>
+      <button class="chip" data-st="after">만난 후</button>
+    </div>
+
+    <div class="f-field"><label>사유 (선택)</label>
+      <textarea id="rejReason" placeholder="예: 거리가 멀어서 부담된다고 하심"></textarea>
+    </div>
+    <div style="height:12px"></div>
+    <button class="btn primary" id="rejSaveBtn" disabled><i class="ti ti-check"></i> 기록하기</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost" id="rejSkipBtn">거절 없이 종료 (기록 안 함)</button>
+  </div>
+</div>
+
 <!-- ═══════════ 로그인 게이트 ═══════════ -->
 <div id="gate">
   <div class="gate-box">
@@ -263,7 +302,17 @@
 </div>
 
 <div id="toast"></div>
-<div id="lightbox"><img id="lightboxImg" alt=""></div>
+
+<!-- ═══════════ 사진 크게 보기 (라이트박스) ═══════════ -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+  <button class="lb-close" id="lbClose" aria-label="닫기"><i class="ti ti-x"></i></button>
+  <div class="lb-count" id="lbCount"></div>
+  <button class="lb-nav prev" id="lbPrev" aria-label="이전 사진"><i class="ti ti-chevron-left"></i></button>
+  <div class="lb-stage" id="lbStage"><img id="lightboxImg" alt="사진"></div>
+  <button class="lb-nav next" id="lbNext" aria-label="다음 사진"><i class="ti ti-chevron-right"></i></button>
+  <div class="lb-dots" id="lbDots"></div>
+  <div class="lb-hint" id="lbHint">← → 키로 이동 · Esc 닫기</div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
