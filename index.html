@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>스며들틈 — 매칭 관리</title>
+<meta name="theme-color" content="#F2E8DF">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ═══════════ 헤더 ═══════════ -->
+  <header class="app-header">
+    <div class="header-top">
+      <svg class="logo-svg" width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#D2E186"/>
+        <circle cx="24" cy="30" r="3" fill="#415111"/><circle cx="40" cy="30" r="3" fill="#415111"/>
+        <path d="M26 40Q32 46 38 40" stroke="#415111" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="17.5" cy="36" r="3.5" fill="#FB8159" opacity=".4"/><circle cx="46.5" cy="36" r="3.5" fill="#FB8159" opacity=".4"/>
+      </svg>
+      <div>
+        <div class="header-title">스며들틈 관리</div>
+        <div class="header-date" id="todayDate"></div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" id="backupBtn" title="데이터 백업"><i class="ti ti-download"></i></button>
+      </div>
+    </div>
+    <div class="stats-row" id="statsRow">
+      <div class="stat-box" data-stat="all"><div class="stat-num" id="statAll">0</div><div class="stat-label">전체</div></div>
+      <div class="stat-box" data-stat="exchanging"><div class="stat-num" id="statEx">0</div><div class="stat-label">사진교환</div></div>
+      <div class="stat-box" data-stat="some"><div class="stat-num" id="statSome">0</div><div class="stat-label">썸</div></div>
+      <div class="stat-box" data-stat="success"><div class="stat-num" id="statSuc">0</div><div class="stat-label">성사</div></div>
+    </div>
+  </header>
+
+  <!-- ═══════════ 후보 뷰 ═══════════ -->
+  <main class="view active" id="view-candidates">
+    <div class="search-bar">
+      <i class="ti ti-search"></i>
+      <input type="search" id="searchInput" placeholder="이름, 직업, 지역, 특징 검색">
+    </div>
+    <div class="filter-row" id="genderChips">
+      <button class="chip active" data-g="all">전체</button>
+      <button class="chip" data-g="m">남자</button>
+      <button class="chip" data-g="f">여자</button>
+      <button class="chip" data-g="__status" data-s="candidate">대기중</button>
+      <button class="chip" data-g="__status" data-s="matched">매칭중</button>
+    </div>
+    <div class="filter-selects">
+      <select class="mini-select" id="sortSelect">
+        <option value="latest">최신 등록순</option>
+        <option value="young">나이 어린순</option>
+        <option value="old">나이 많은순</option>
+        <option value="name">이름순</option>
+      </select>
+      <button class="view-toggle" id="viewToggle" title="보기 전환"><i class="ti ti-layout-grid"></i></button>
+    </div>
+    <div id="candidateList"></div>
+  </main>
+
+  <!-- ═══════════ 등록 뷰 ═══════════ -->
+  <main class="view" id="view-register">
+    <div class="view-header"><div class="view-title" id="regTitle">새 후보 등록</div></div>
+    <div class="seg-tabs" id="regTabs">
+      <button class="seg-tab active" data-mode="paste"><i class="ti ti-clipboard-text"></i> 붙여넣기</button>
+      <button class="seg-tab" data-mode="form"><i class="ti ti-forms"></i> 직접 입력</button>
+      <button class="seg-tab" data-mode="excel"><i class="ti ti-file-spreadsheet"></i> 엑셀</button>
+    </div>
+
+    <!-- 붙여넣기 -->
+    <section id="regPaste">
+      <p class="hint-text">카톡으로 받은 프로필을 그대로 붙여넣고 [자동 인식]을 누르세요. 인식된 내용은 아래 폼에서 확인·수정 후 저장합니다.</p>
+      <textarea class="paste-area" id="pasteInput" placeholder="나이 : 97년생&#10;키 : 160cm (마른체형)&#10;거주지 : 대구시 북구&#10;직업 : 간호사&#10;…"></textarea>
+      <div style="height:10px"></div>
+      <button class="btn dark" id="parseBtn"><i class="ti ti-wand"></i> 자동 인식</button>
+    </section>
+
+    <!-- 엑셀 -->
+    <section id="regExcel" class="hidden">
+      <p class="hint-text">엑셀(.xlsx) 또는 CSV 파일로 여러 명을 한 번에 등록할 수 있어요. 먼저 양식을 내려받아 채워주세요.</p>
+      <div class="btn-row">
+        <button class="btn soft" id="templateBtn"><i class="ti ti-file-download"></i> 양식 받기</button>
+        <button class="btn dark" id="excelBtn"><i class="ti ti-upload"></i> 파일 업로드</button>
+      </div>
+      <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" class="hidden">
+      <div id="excelResult" style="margin-top:14px"></div>
+    </section>
+
+    <!-- 입력 폼 (붙여넣기 인식 결과 확인용 겸용) -->
+    <section id="regForm" class="hidden">
+      <div id="parseSummary"></div>
+
+      <div class="form-section">
+        <div class="form-section-title"><i class="ti ti-user"></i> 기본 정보</div>
+        <div class="form-grid">
+          <div class="f-field"><label>이름 *</label><input id="fName" placeholder="예: 봄이"></div>
+          <div class="f-field"><label>성별 *</label>
+            <div class="gender-toggle">
+              <button type="button" class="g-btn m" data-v="m" id="gBtnM">남자</button>
+              <button type="button" class="g-btn f" data-v="f" id="gBtnF">여자</button>
+            </div>
+          </div>
+          <div class="f-field"><label>출생연도</label><input id="fBirth" placeholder="예: 1997" inputmode="numeric"></div>
+          <div class="f-field"><label>키 (cm)</label><input id="fHeight" placeholder="예: 160" inputmode="numeric"></div>
+          <div class="f-field"><label>체형</label><input id="fBody" placeholder="예: 마른체형"></div>
+          <div class="f-field"><label>거주지</label><input id="fRegion" placeholder="예: 대구 북구"></div>
+          <div class="f-field"><label>직업</label><input id="fJob" placeholder="예: 간호사"></div>
+          <div class="f-field"><label>근무 형태</label><input id="fWork" placeholder="예: 평일 9to6 고정"></div>
+          <div class="f-field"><label>학력</label><input id="fEdu" placeholder="예: 전문대졸"></div>
+          <div class="f-field"><label>종교</label><input id="fReligion" placeholder="예: 기독교"></div>
+          <div class="f-field"><label>MBTI</label><input id="fMbti" placeholder="예: ISFP"></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><i class="ti ti-mood-smile"></i> 라이프스타일</div>
+        <div class="form-grid">
+          <div class="f-field"><label>음주</label><input id="fDrink" placeholder="예: 월 1-2회"></div>
+          <div class="f-field"><label>흡연</label><input id="fSmoke" placeholder="예: 비흡연"></div>
+          <div class="f-field"><label>자차/면허</label><input id="fCar" placeholder="예: 자차 없음, 면허 있음"></div>
+          <div class="f-field"><label>취미 (쉼표 구분)</label><input id="fHobby" placeholder="예: 러닝, 필라테스, 독서"></div>
+          <div class="f-field full"><label>성격</label><textarea id="fPersonality" placeholder="본인 성격, 주변에서 보는 이미지"></textarea></div>
+          <div class="f-field full"><label>기타 특징 메모</label><textarea id="fDesc" placeholder="그 외 특이사항"></textarea></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><i class="ti ti-sparkles"></i> 이상형</div>
+        <div class="form-grid">
+          <div class="f-field"><label>나이</label><input id="iAge" placeholder="예: 연하 2 ~ 연상 4 (연상선호)"></div>
+          <div class="f-field"><label>키</label><input id="iHeight" placeholder="예: 175cm 이상"></div>
+          <div class="f-field"><label>지역</label><input id="iRegion" placeholder="예: 대구 선호, 경북 가능"></div>
+          <div class="f-field"><label>중요 순위</label><input id="iPriority" placeholder="예: 성격 > 직업안정성 > 경제력"></div>
+          <div class="f-field"><label>선호 직업</label><input id="iJobsPref" placeholder="예: 소방관, 전문직, 공무원"></div>
+          <div class="f-field"><label>기피 직업</label><input id="iJobsAvoid" placeholder="예: 간호사, 자영업"></div>
+          <div class="f-field full"><label>기타 조건</label><textarea id="iNote" placeholder="예: 똑똑하고 다정다감하고 자상한 사람"></textarea></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><i class="ti ti-photo"></i> 사진</div>
+        <div class="photo-add-row" id="photoRow">
+          <button type="button" class="photo-add-btn" id="photoAddBtn"><i class="ti ti-plus"></i></button>
+        </div>
+        <input type="file" id="photoFile" accept="image/*" multiple class="hidden">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn ghost" id="formCancelBtn">취소</button>
+        <button class="btn primary" id="formSaveBtn"><i class="ti ti-check"></i> 저장</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══════════ 매칭 뷰 ═══════════ -->
+  <main class="view" id="view-matches">
+    <div class="view-header">
+      <div class="view-title">매칭 관리</div>
+      <button class="btn dark" style="width:auto;padding:8px 16px;font-size:13px" id="newMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺기</button>
+    </div>
+    <div class="filter-row" id="matchChips">
+      <button class="chip active" data-ms="all">전체</button>
+      <button class="chip" data-ms="exchanging">사진교환</button>
+      <button class="chip" data-ms="some">썸</button>
+      <button class="chip" data-ms="success">성사</button>
+      <button class="chip" data-ms="ended">종료</button>
+    </div>
+    <div id="matchList"></div>
+  </main>
+
+  <!-- ═══════════ 설정 뷰 ═══════════ -->
+  <main class="view" id="view-settings">
+    <div class="view-header"><div class="view-title">설정</div></div>
+
+    <div class="set-card">
+      <div class="set-title"><i class="ti ti-database"></i> 데이터 관리</div>
+      <p class="set-desc">데이터는 Supabase 클라우드에 저장되고, 로그인하면 어느 기기에서나 같은 데이터를 볼 수 있어요. 만일을 대비해 가끔 백업해 주세요.</p>
+      <div class="btn-row">
+        <button class="btn soft" id="exportBtn"><i class="ti ti-download"></i> 백업 (JSON)</button>
+        <button class="btn ghost" id="importBtn"><i class="ti ti-upload"></i> 복원 (병합)</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" class="hidden">
+      <div style="height:8px"></div>
+      <button class="btn ghost" id="migratePhotosBtn"><i class="ti ti-cloud-up"></i> 예전 사진을 스토리지로 이전</button>
+      <p class="set-desc" style="margin:8px 0 0">예전 방식(DB 내장)으로 저장된 사진을 클라우드 스토리지로 옮겨서 로딩 속도를 높여요.</p>
+    </div>
+
+    <div class="set-card">
+      <div class="set-title"><i class="ti ti-user-circle"></i> 계정</div>
+      <p class="set-desc" id="accountEmail">로그인 정보를 불러오는 중…</p>
+      <button class="btn ghost" id="logoutBtn"><i class="ti ti-logout"></i> 로그아웃</button>
+    </div>
+
+    <div class="set-card">
+      <div class="set-title"><i class="ti ti-info-circle"></i> 정보</div>
+      <p class="set-desc" style="margin:0">스며들틈 관리자 도구 v3.0<br>사진 스토리지 · 매칭 타임라인 · 추천 기능</p>
+    </div>
+  </main>
+
+  <!-- ═══════════ 하단 네비 ═══════════ -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="candidates"><i class="ti ti-users"></i><p>후보</p></button>
+    <button class="nav-item" data-view="matches"><i class="ti ti-heart"></i><p>매칭</p></button>
+    <button class="nav-fab" data-view="register"><span class="fab"><i class="ti ti-plus"></i></span><p>등록</p></button>
+    <button class="nav-item" data-view="settings"><i class="ti ti-settings"></i><p>설정</p></button>
+  </nav>
+</div>
+
+<!-- ═══════════ 후보 상세 모달 ═══════════ -->
+<div class="modal-bg" id="detailModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════ 매칭 상세 모달 ═══════════ -->
+<div class="modal-bg" id="matchModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div id="matchBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════ 매칭 맺기 모달 ═══════════ -->
+<div class="modal-bg" id="createMatchModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="view-title" style="margin-bottom:12px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
+    <div class="pick-cols">
+      <div class="pick-col">
+        <div class="pick-label m">남자 후보</div>
+        <div class="pick-list" id="pickMale"></div>
+      </div>
+      <div class="pick-col">
+        <div class="pick-label f">여자 후보</div>
+        <div class="pick-list" id="pickFemale"></div>
+      </div>
+    </div>
+    <button class="btn primary" id="createMatchBtn" disabled><i class="ti ti-heart"></i> 이 둘을 이어주기</button>
+  </div>
+</div>
+
+<!-- ═══════════ 로그인 게이트 ═══════════ -->
+<div id="gate">
+  <div class="gate-box">
+    <svg width="72" height="72" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#D2E186"/>
+      <circle cx="24" cy="30" r="3" fill="#415111"/><circle cx="40" cy="30" r="3" fill="#415111"/>
+      <path d="M26 40Q32 46 38 40" stroke="#415111" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <circle cx="17.5" cy="36" r="3.5" fill="#FB8159" opacity=".4"/><circle cx="46.5" cy="36" r="3.5" fill="#FB8159" opacity=".4"/>
+    </svg>
+    <div class="gate-title">스며들틈</div>
+    <div class="gate-sub">관리자 로그인이 필요해요</div>
+    <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username">
+    <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
+    <p id="loginError" style="font-size:12.5px;color:#A32D2D;margin:-2px 0 10px;min-height:18px"></p>
+    <button class="btn primary" id="loginBtn"><i class="ti ti-login-2"></i> 로그인</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="lightbox"><img id="lightboxImg" alt=""></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
