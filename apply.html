@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>스며들틈 소개팅 신청</title>
+<meta name="description" content="스며들틈에 소개팅을 신청합니다. 작성해 주신 정보는 매칭에만 사용됩니다.">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="apply.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <button class="back-btn hidden" id="backBtn" aria-label="이전 단계">‹</button>
+    <span class="brand">스며들틈 소개팅 신청</span>
+    <span class="step-count" id="stepCount"></span>
+  </div>
+  <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<div id="wrap">
+
+  <!-- ═══ 0. 시작 ═══ -->
+  <section class="step on" data-step="0">
+    <h1>좋은 인연을<br>정성껏 이어드릴게요</h1>
+    <p class="lead">3분이면 신청이 끝나요. 작성해 주신 내용은 주선자만 보고, 매칭에만 사용합니다.</p>
+
+    <div class="card">
+      <div class="bullet">
+        <span class="bullet-num">1</span>
+        <span class="bullet-body"><b>신청서 작성</b><span>기본 정보와 원하시는 상대의 조건을 적어주세요.</span></span>
+      </div>
+      <div class="bullet">
+        <span class="bullet-num">2</span>
+        <span class="bullet-body"><b>주선자 확인</b><span>보내주신 내용을 확인한 뒤 등록해 드려요. 보통 2~3일 걸립니다.</span></span>
+      </div>
+      <div class="bullet">
+        <span class="bullet-num">3</span>
+        <span class="bullet-body"><b>소개 연락</b><span>어울리는 분이 있으면 적어주신 연락처로 먼저 연락드려요.</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">먼저 확인해 주세요</p>
+      <p class="card-desc">만 19세 이상만 신청할 수 있어요. 신청한다고 바로 소개가 시작되지는 않고, 주선자가 확인한 뒤 진행됩니다. 작성 중인 내용은 이 브라우저에 임시 저장되니 중간에 나갔다 오셔도 괜찮아요.</p>
+    </div>
+  </section>
+
+  <!-- ═══ 1. 기본 정보 ═══ -->
+  <section class="step" data-step="1">
+    <h1>기본 정보를 알려주세요</h1>
+    <p class="lead">이름과 성별만 필수예요. 나머지는 아는 만큼만 적으셔도 됩니다.</p>
+
+    <div class="field">
+      <label class="lb" for="fName">이름<span class="req">*</span></label>
+      <input type="text" id="fName" placeholder="실명 또는 불리고 싶은 이름" maxlength="20" autocomplete="name">
+      <p class="err hidden" id="errName">이름을 입력해 주세요</p>
+    </div>
+
+    <div class="field">
+      <label class="lb">성별<span class="req">*</span></label>
+      <div class="picks" id="genderPick">
+        <button type="button" class="pick" data-v="m">남자</button>
+        <button type="button" class="pick" data-v="f">여자</button>
+      </div>
+      <p class="err hidden" id="errGender">성별을 선택해 주세요</p>
+    </div>
+
+    <div class="field">
+      <div class="row2">
+        <div>
+          <label class="lb" for="fBirth">출생연도</label>
+          <input type="number" id="fBirth" placeholder="1997" inputmode="numeric" min="1940" max="2010">
+        </div>
+        <div>
+          <label class="lb" for="fHeight">키 (cm)</label>
+          <input type="number" id="fHeight" placeholder="160" inputmode="numeric" min="130" max="220">
+        </div>
+      </div>
+      <p class="err hidden" id="errBirth">만 19세 이상만 신청할 수 있어요</p>
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fBody">체형<span class="opt">선택</span></label>
+      <input type="text" id="fBody" placeholder="예: 보통 체형" maxlength="30">
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fRegion">거주지<span class="opt">선택</span></label>
+      <input type="text" id="fRegion" placeholder="예: 대구 북구" maxlength="40">
+    </div>
+
+    <div class="field">
+      <div class="row2">
+        <div>
+          <label class="lb" for="fJob">직업</label>
+          <input type="text" id="fJob" placeholder="예: 간호사" maxlength="40">
+        </div>
+        <div>
+          <label class="lb" for="fWork">근무 형태</label>
+          <input type="text" id="fWork" placeholder="예: 평일 9to6" maxlength="40">
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="row2">
+        <div>
+          <label class="lb" for="fEdu">학력</label>
+          <input type="text" id="fEdu" placeholder="예: 대졸" maxlength="30">
+        </div>
+        <div>
+          <label class="lb" for="fMbti">MBTI</label>
+          <input type="text" id="fMbti" placeholder="예: ISFP" maxlength="8">
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fReligion">종교<span class="opt">선택 · 민감정보</span></label>
+      <p class="help">종교는 법에서 민감정보로 정하고 있어요. 적지 않으셔도 신청에 아무 지장이 없고, 적으신 경우에만 마지막 단계에서 별도 동의를 받습니다.</p>
+      <input type="text" id="fReligion" placeholder="예: 무교 / 기독교" maxlength="20">
+    </div>
+  </section>
+
+  <!-- ═══ 2. 라이프스타일 ═══ -->
+  <section class="step" data-step="2">
+    <h1>어떤 분이신가요?</h1>
+    <p class="lead">성격과 생활 습관은 어울리는 상대를 찾는 데 가장 큰 힌트가 돼요.</p>
+
+    <div class="field">
+      <label class="lb">음주</label>
+      <div class="chips" data-pickone="fDrink">
+        <button type="button" class="chip" data-v="안 마심">안 마심</button>
+        <button type="button" class="chip" data-v="가끔">가끔</button>
+        <button type="button" class="chip" data-v="월 1-2회">월 1-2회</button>
+        <button type="button" class="chip" data-v="주 1회 이상">주 1회 이상</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lb">흡연</label>
+      <div class="chips" data-pickone="fSmoke">
+        <button type="button" class="chip" data-v="비흡연">비흡연</button>
+        <button type="button" class="chip" data-v="전자담배">전자담배</button>
+        <button type="button" class="chip" data-v="흡연">흡연</button>
+        <button type="button" class="chip" data-v="금연 중">금연 중</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lb">자차 · 면허</label>
+      <div class="chips" data-pickone="fCar">
+        <button type="button" class="chip" data-v="자차 있음">자차 있음</button>
+        <button type="button" class="chip" data-v="면허만 있음">면허만 있음</button>
+        <button type="button" class="chip" data-v="없음">없음</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fHobby">취미<span class="opt">선택</span></label>
+      <p class="help">쉼표로 구분해 주세요.</p>
+      <input type="text" id="fHobby" placeholder="예: 러닝, 영화, 요리" maxlength="80">
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fPersonality">성격<span class="opt">선택</span></label>
+      <textarea id="fPersonality" placeholder="주변에서 어떤 사람이라는 말을 자주 듣나요?" maxlength="400"></textarea>
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fDesc">더 하고 싶은 말<span class="opt">선택</span></label>
+      <textarea id="fDesc" placeholder="자유롭게 적어주세요" maxlength="400"></textarea>
+    </div>
+  </section>
+
+  <!-- ═══ 3. 이상형 ═══ -->
+  <section class="step" data-step="3">
+    <h1>어떤 분을 만나고<br>싶으신가요?</h1>
+    <p class="lead">구체적으로 적어주실수록 헛걸음이 줄어요. 전부 선택 항목입니다.</p>
+
+    <div class="field">
+      <label class="lb" for="iAge">나이</label>
+      <input type="text" id="iAge" placeholder="예: 연하 2살 ~ 연상 4살" maxlength="60">
+    </div>
+    <div class="field">
+      <label class="lb" for="iHeight">키</label>
+      <input type="text" id="iHeight" placeholder="예: 175cm 이상" maxlength="40">
+    </div>
+    <div class="field">
+      <label class="lb" for="iRegion">지역</label>
+      <input type="text" id="iRegion" placeholder="예: 대구 선호, 경북까지 가능" maxlength="60">
+    </div>
+    <div class="field">
+      <label class="lb" for="iPriority">가장 중요하게 보는 것</label>
+      <input type="text" id="iPriority" placeholder="예: 성격 &gt; 직업 &gt; 외모" maxlength="80">
+    </div>
+    <div class="field">
+      <div class="row2">
+        <div>
+          <label class="lb" for="iJobsPref">선호 직업</label>
+          <input type="text" id="iJobsPref" placeholder="예: 공무원" maxlength="60">
+        </div>
+        <div>
+          <label class="lb" for="iJobsAvoid">피하고 싶은 직업</label>
+          <input type="text" id="iJobsAvoid" placeholder="예: 자영업" maxlength="60">
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label class="lb" for="iNote">그 외 바라는 점</label>
+      <textarea id="iNote" placeholder="예: 대화가 잘 통하고 다정한 분이면 좋겠어요" maxlength="400"></textarea>
+    </div>
+  </section>
+
+  <!-- ═══ 4. 사진 · 연락처 ═══ -->
+  <section class="step" data-step="4">
+    <h1>사진과 연락처를<br>남겨주세요</h1>
+    <p class="lead">연락처는 소개가 성사됐을 때 연락드리기 위해서만 사용해요.</p>
+
+    <div class="field">
+      <label class="lb">사진<span class="opt">선택 · 최대 3장</span></label>
+      <p class="help">얼굴이 잘 나온 사진이면 충분해요. 올리신 사진은 소개 상대에게만 보여집니다.</p>
+      <div class="photos" id="photoBox">
+        <button type="button" class="photo-add" id="photoAddBtn"><b>+</b>사진 추가</button>
+      </div>
+      <input type="file" id="photoFile" accept="image/*" multiple class="hidden">
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fPhone">연락처<span class="req">*</span></label>
+      <input type="tel" id="fPhone" placeholder="010-0000-0000" inputmode="tel" maxlength="20" autocomplete="tel">
+      <p class="err hidden" id="errPhone">연락 가능한 휴대폰 번호를 입력해 주세요</p>
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fKakao">카카오톡 ID<span class="opt">선택</span></label>
+      <input type="text" id="fKakao" placeholder="전화보다 카톡이 편하시면 적어주세요" maxlength="40">
+    </div>
+
+    <div class="field">
+      <label class="lb" for="fReferral">어떻게 알고 오셨나요?<span class="opt">선택</span></label>
+      <input type="text" id="fReferral" placeholder="예: 친구 소개, 인스타그램" maxlength="60">
+    </div>
+
+    <!-- 자동 입력 프로그램 거르기용. 사람 눈에는 보이지 않습니다. -->
+    <div class="hidden" aria-hidden="true">
+      <label for="company">회사명</label>
+      <input type="text" id="company" name="company" tabindex="-1" autocomplete="off">
+    </div>
+  </section>
+
+  <!-- ═══ 5. 동의 ═══ -->
+  <section class="step" data-step="5">
+    <h1>마지막으로<br>동의가 필요해요</h1>
+    <p class="lead">소개팅 특성상 프로필이 상대에게 전달되기 때문에, 아래 항목에 동의해 주셔야 신청이 완료됩니다.</p>
+
+    <button type="button" class="consent-all" id="cAll">
+      <span class="tick">✓</span>
+      <span class="t">전체 동의하기</span>
+    </button>
+
+    <div id="consentList">
+      <button type="button" class="consent-row" data-c="privacy">
+        <span class="tick">✓</span>
+        <span class="t"><span class="must">[필수]</span> 개인정보 수집·이용 동의</span>
+        <a class="more" href="privacy.html#collect" target="_blank" rel="noopener">보기</a>
+      </button>
+      <button type="button" class="consent-row" data-c="sensitive">
+        <span class="tick">✓</span>
+        <span class="t"><span class="must">[필수]</span> 민감정보(종교·사진) 처리 동의</span>
+        <a class="more" href="privacy.html#sensitive" target="_blank" rel="noopener">보기</a>
+      </button>
+      <button type="button" class="consent-row" data-c="third">
+        <span class="tick">✓</span>
+        <span class="t"><span class="must">[필수]</span> 소개 상대에게 프로필 제공 동의</span>
+        <a class="more" href="privacy.html#third" target="_blank" rel="noopener">보기</a>
+      </button>
+      <button type="button" class="consent-row" data-c="age">
+        <span class="tick">✓</span>
+        <span class="t"><span class="must">[필수]</span> 만 19세 이상입니다</span>
+      </button>
+      <button type="button" class="consent-row" data-c="marketing">
+        <span class="tick">✓</span>
+        <span class="t">[선택] 행사·소식 안내 수신 동의</span>
+      </button>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <p class="card-title">보내주신 내용</p>
+      <dl class="sum" id="summary"></dl>
+    </div>
+  </section>
+
+  <!-- ═══ 6. 완료 ═══ -->
+  <section class="step" data-step="6">
+    <div class="done">
+      <div class="done-mark">✓</div>
+      <h1 style="margin-bottom:12px">신청이 접수되었어요</h1>
+      <p class="lead" style="margin-bottom:0">주선자가 확인한 뒤, 보통 2~3일 안에 적어주신 연락처로 안내드릴게요.<br>좋은 인연으로 이어지도록 정성껏 준비하겠습니다.</p>
+    </div>
+    <div class="card">
+      <p class="card-title">신청을 취소하거나 정보를 고치고 싶다면</p>
+      <p class="card-desc" id="contactLine"></p>
+    </div>
+  </section>
+
+</div>
+
+<div class="footbar" id="footbar">
+  <button class="action" id="nextBtn">신청 시작하기</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script src="apply.js" defer></script>
+</body>
+</html>

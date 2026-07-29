@@ -27,20 +27,23 @@ function dbErr(e) {
 //  데이터 저장소 (Supabase + 메모리 캐시)
 // ═══════════════════════════════════════
 const DB = {
-  data: { candidates: [], matches: [], rejections: [] },
+  data: { candidates: [], matches: [], rejections: [], applications: [] },
 
   async init() {
-    const [c, m, r] = await Promise.all([
+    const [c, m, r, a] = await Promise.all([
       sb.from('candidates').select('*').order('id', { ascending: false }),
       sb.from('matches').select('*').order('id', { ascending: false }),
-      sb.from('rejections').select('*').order('id', { ascending: false })
+      sb.from('rejections').select('*').order('id', { ascending: false }),
+      sb.from('applications').select('*').order('id', { ascending: false })
     ]);
     if (c.error || m.error) throw (c.error || m.error);
     this.data.candidates = c.data || [];
     this.data.matches = m.data || [];
-    // 거절 기록 테이블은 upgrade_v4.sql을 아직 안 돌렸을 수 있으므로 없으면 빈 목록으로 진행
+    // 아래 두 테이블은 업그레이드 SQL을 아직 안 돌렸을 수 있으므로, 없으면 빈 목록으로 진행
     if (r.error) { console.warn('[DB] rejections 테이블 없음 — upgrade_v4.sql을 실행해 주세요', r.error); this.data.rejections = []; }
     else this.data.rejections = r.data || [];
+    if (a.error) { console.warn('[DB] applications 테이블 없음 — upgrade_v5.sql을 실행해 주세요', a.error); this.data.applications = []; }
+    else this.data.applications = a.data || [];
   },
 
   async addCandidate(cand) {
@@ -119,6 +122,20 @@ const DB = {
     return true;
   },
 
+  async updateApplication(id, patch) {
+    const { data, error } = await sb.from('applications').update(patch).eq('id', id).select().single();
+    if (error) { dbErr(error); return null; }
+    const i = this.data.applications.findIndex(x => x.id === id);
+    if (i > -1) this.data.applications[i] = data;
+    return data;
+  },
+  async deleteApplication(id) {
+    const { error } = await sb.from('applications').delete().eq('id', id);
+    if (error) { dbErr(error); return false; }
+    this.data.applications = this.data.applications.filter(x => x.id !== id);
+    return true;
+  },
+
 };
 
 // ── 별표 고정 (기기별 개인 설정) ──
@@ -144,6 +161,8 @@ const S = {
   editingId: null,
   formPhotos: [],
   matchFilter: 'all',
+  appFilter: 'pending',
+  appDetailId: null,
   detailId: null,
   matchDetailId: null,
   pick: { m: null, f: null },
@@ -1526,6 +1545,207 @@ async function createMatch() {
 }
 
 // ═══════════════════════════════════════
+//  신청 관리 (공개 폼으로 들어온 신청서)
+// ═══════════════════════════════════════
+const APP_STATUS_LABEL = { pending: '대기', approved: '승인', rejected: '반려' };
+const CONSENT_LABEL = {
+  privacy: '개인정보 수집·이용', sensitive: '민감정보', third: '제3자 제공',
+  age: '만 19세 이상', marketing: '소식 수신'
+};
+
+function pendingApps() { return DB.data.applications.filter(a => a.status === 'pending'); }
+
+function renderAppBadge() {
+  const n = pendingApps().length;
+  const b = $('appBadge');
+  b.textContent = n > 99 ? '99+' : String(n);
+  b.classList.toggle('hidden', n === 0);
+}
+
+function whenLabel(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 3600) return `${Math.max(1, Math.floor(diff / 60))}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}일 전`;
+  return String(iso).slice(0, 10).replace(/-/g, '.');
+}
+
+function renderApplications() {
+  const box = $('appList');
+  let list = DB.data.applications.slice();
+  if (S.appFilter !== 'all') list = list.filter(a => a.status === S.appFilter);
+  if (!list.length) {
+    box.innerHTML = emptyHtml(
+      S.appFilter === 'pending' ? '처리할 신청서가 없어요' : '해당하는 신청서가 없어요',
+      '신청 폼 주소를 안내하면 여기로 신청서가 들어와요'
+    );
+    return;
+  }
+  box.innerHTML = list.map(a => {
+    const photos = a.photos || [];
+    return `<div class="app-card ${a.status}" data-aid="${a.id}">
+      <div class="app-top">
+        <span class="app-name">${escHtml(a.name)}</span>
+        <span class="badge ${a.status}">${APP_STATUS_LABEL[a.status]}</span>
+        <span class="app-when">${escHtml(whenLabel(a.created_at))}</span>
+      </div>
+      <div class="app-meta">${escHtml([a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.height ? a.height + 'cm' : '', a.job, a.region].filter(Boolean).join(' · '))}</div>
+      ${a.phone ? `<div class="app-sub">${escHtml(a.phone)}</div>` : ''}
+      ${photos.length ? `<div class="app-thumbs">${photos.slice(0, 3).map(p => `<img src="${p}" alt="">`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  box.querySelectorAll('[data-aid]').forEach(el => {
+    el.addEventListener('click', () => openAppDetail(parseInt(el.dataset.aid, 10)));
+  });
+}
+
+function openAppDetail(id) {
+  const a = DB.data.applications.find(x => x.id === id);
+  if (!a) return;
+  S.appDetailId = id;
+  const photos = a.photos || [];
+  const ideal = a.ideal || {};
+  const consent = a.consent || {};
+  const linked = a.candidate_id ? candOf(a.candidate_id) : null;
+
+  $('appBody').innerHTML = `
+    ${photos.length ? Gal.html(photos) : `<div class="d-nophoto"><i class="ti ti-photo-off"></i>사진을 올리지 않았어요</div>`}
+    <div class="d-head">
+      <span class="d-name">${escHtml(a.name)}</span>
+      <span class="badge ${a.status}">${APP_STATUS_LABEL[a.status]}</span>
+    </div>
+    <div class="d-headline">${escHtml([a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.height ? a.height + 'cm' : '', a.body_type, a.region].filter(Boolean).join(' · '))}</div>
+
+    <table class="info-table">
+      ${infoRow('phone', '연락처', a.phone)}
+      ${infoRow('brand-hipchat', '카카오톡', a.contact_kakao)}
+      ${infoRow('clock', '접수', String(a.created_at).slice(0, 16).replace('T', ' '))}
+      ${infoRow('route', '유입 경로', a.referral)}
+      ${infoRow('briefcase', '직업', a.job + (a.work_pattern ? ` (${a.work_pattern})` : ''))}
+      ${infoRow('school', '학력', a.education)}
+      ${infoRow('building-church', '종교', a.religion)}
+      ${infoRow('puzzle', 'MBTI', a.mbti)}
+      ${infoRow('glass-full', '음주', a.drinking)}
+      ${infoRow('smoking-no', '흡연', a.smoking)}
+      ${infoRow('car', '자차', a.car)}
+      ${infoRow('ball-tennis', '취미', a.hobbies)}
+    </table>
+    ${a.personality ? `<div class="d-section-title">성격</div><p class="d-desc">${escHtml(a.personality)}</p>` : ''}
+    ${a.description ? `<div class="d-section-title">하고 싶은 말</div><p class="d-desc">${escHtml(a.description)}</p>` : ''}
+
+    ${Object.values(ideal).some(Boolean) ? `
+    <div class="ideal-card">
+      <div class="ideal-title"><i class="ti ti-sparkles"></i> 이런 분을 기다려요</div>
+      <table class="info-table">
+        ${infoRow('calendar', '나이', ideal.age)}
+        ${infoRow('ruler-2', '키', ideal.height)}
+        ${infoRow('map-pin', '지역', ideal.region)}
+        ${infoRow('list-numbers', '중요 순위', ideal.priority)}
+        ${infoRow('thumb-up', '선호 직업', ideal.jobs_pref)}
+        ${infoRow('thumb-down', '기피 직업', ideal.jobs_avoid)}
+        ${infoRow('message-heart', '기타', ideal.note)}
+      </table>
+    </div>` : ''}
+
+    <div class="d-section-title"><i class="ti ti-shield-check"></i> 동의 내역</div>
+    <div class="consent-view">
+      ${Object.keys(CONSENT_LABEL).map(k => `<span class="${consent[k] ? '' : 'no'}">${consent[k] ? '✓' : '✕'} ${CONSENT_LABEL[k]}</span>`).join('')}
+    </div>
+    <p class="hint-text">${consent.agreed_at ? escHtml(String(consent.agreed_at).slice(0, 16).replace('T', ' ')) + ' 동의' : '동의 시각 기록 없음'}${consent.version ? ` · 약관 ${escHtml(consent.version)}` : ''}</p>
+
+    <div class="d-section-title"><i class="ti ti-notes"></i> 검토 메모</div>
+    <textarea id="appMemo" class="admin-memo-input" placeholder="반려 사유나 확인한 내용을 적어두세요">${escHtml(a.review_memo || '')}</textarea>
+    <div style="height:12px"></div>
+
+    ${a.status === 'pending' ? `
+      <button class="btn primary" id="appApproveBtn"><i class="ti ti-user-check"></i> 승인하고 후보로 등록</button>
+      <div style="height:8px"></div>
+      <button class="btn ghost" id="appRejectBtn"><i class="ti ti-user-x"></i> 반려 처리</button>
+    ` : `
+      ${linked ? `<button class="btn soft" id="appGoCandBtn"><i class="ti ti-user"></i> 등록된 후보 보기 (${escHtml(linked.name)})</button>`
+               : a.status === 'approved' ? `<p class="hint-text">승인 처리됐지만 연결된 후보를 찾을 수 없어요 (삭제된 것 같아요)</p>` : ''}
+      <div style="height:8px"></div>
+      <button class="btn ghost" id="appReopenBtn"><i class="ti ti-rotate"></i> 대기 상태로 되돌리기</button>
+    `}
+    <div style="height:8px"></div>
+    <button class="btn soft" id="appMemoSaveBtn"><i class="ti ti-check"></i> 메모만 저장</button>
+    <div style="height:8px"></div>
+    <button class="btn danger-soft" id="appDelBtn"><i class="ti ti-trash"></i> 신청서 삭제</button>
+  `;
+
+  Gal.mount(photos);
+
+  $('appMemoSaveBtn').onclick = async () => {
+    if (await DB.updateApplication(id, { review_memo: $('appMemo').value.trim() })) toast('메모가 저장되었어요');
+  };
+  const approveBtn = $('appApproveBtn'), rejectBtn = $('appRejectBtn');
+  if (approveBtn) approveBtn.onclick = () => approveApplication(a);
+  if (rejectBtn) rejectBtn.onclick = async () => {
+    const memo = $('appMemo').value.trim();
+    if (!confirm(`'${a.name}' 신청서를 반려할까요?\n후보로 등록되지 않습니다.`)) return;
+    if (!(await DB.updateApplication(id, { status: 'rejected', review_memo: memo, reviewed_at: nowStr() }))) return;
+    openAppDetail(id);
+    renderAll();
+    toast('반려 처리했어요');
+  };
+  const goCand = $('appGoCandBtn');
+  if (goCand) goCand.onclick = () => { closeModal('appModal'); switchView('candidates'); openDetail(a.candidate_id); };
+  const reopen = $('appReopenBtn');
+  if (reopen) reopen.onclick = async () => {
+    if (!(await DB.updateApplication(id, { status: 'pending', reviewed_at: null }))) return;
+    openAppDetail(id);
+    renderAll();
+    toast('대기 상태로 되돌렸어요');
+  };
+  $('appDelBtn').onclick = async () => {
+    if (!confirm(`'${a.name}' 신청서를 완전히 삭제할까요?\n이미 후보로 등록된 경우 후보는 남습니다.`)) return;
+    if (!(await DB.deleteApplication(id))) return;
+    closeModal('appModal');
+    renderAll();
+    toast('신청서를 삭제했어요');
+  };
+
+  openModal('appModal');
+}
+
+// 신청서 → 후보 등록
+async function approveApplication(a) {
+  if (a.status !== 'pending') return;
+  const dupe = DB.data.candidates.find(c => c.name === a.name && c.gender === a.gender && (a.phone ? c.phone === a.phone : true));
+  if (dupe && !confirm(`'${a.name}'님과 같은 이름의 후보가 이미 있어요.\n그래도 새로 등록할까요?`)) return;
+
+  // 아직 저장 안 한 검토 메모도 함께 넘김
+  const memo = $('appMemo') ? $('appMemo').value.trim() : (a.review_memo || '');
+  const btn = $('appApproveBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '등록 중…'; }
+  const row = await DB.addCandidate({
+    name: a.name, gender: a.gender,
+    birth_year: a.birth_year || '', height: a.height || '', body_type: a.body_type || '',
+    region: a.region || '', job: a.job || '', work_pattern: a.work_pattern || '',
+    education: a.education || '', religion: a.religion || '', mbti: a.mbti || '',
+    drinking: a.drinking || '', smoking: a.smoking || '', car: a.car || '',
+    hobbies: a.hobbies || '', personality: a.personality || '', description: a.description || '',
+    ideal: a.ideal || {}, photos: a.photos || [],
+    phone: a.phone || '', source: 'apply',
+    admin_memo: memo
+  });
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-user-check"></i> 승인하고 후보로 등록'; }
+  if (!row) return;
+
+  await DB.updateApplication(a.id, {
+    status: 'approved',
+    candidate_id: row.id,
+    review_memo: memo,
+    reviewed_at: nowStr()
+  });
+  openAppDetail(a.id);
+  renderAll();
+  toast(`${a.name}님이 후보로 등록되었어요`);
+}
+
+// ═══════════════════════════════════════
 //  설정 — 백업 / 사진 이전 / 계정
 // ═══════════════════════════════════════
 
@@ -1693,6 +1913,8 @@ function renderAll() {
   renderStats();
   renderCandidates();
   renderMatches();
+  renderApplications();
+  renderAppBadge();
 }
 
 async function init() {
@@ -1798,6 +2020,15 @@ async function init() {
     });
   });
 
+  // 신청 관리
+  document.querySelectorAll('#appChips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      S.appFilter = chip.dataset.as;
+      document.querySelectorAll('#appChips .chip').forEach(c => c.classList.toggle('active', c === chip));
+      renderApplications();
+    });
+  });
+
   // 거절 기록 모달
   document.querySelectorAll('#rejStage .chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -1807,6 +2038,17 @@ async function init() {
   });
   $('rejSaveBtn').addEventListener('click', () => Rej.save());
   $('rejSkipBtn').addEventListener('click', () => Rej.skip());
+
+  // 공개 신청 폼 주소
+  const applyUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'apply';
+  $('applyUrl').textContent = applyUrl;
+  $('copyApplyBtn').addEventListener('click', () => {
+    const done = () => toast('신청 폼 주소가 복사되었어요');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(applyUrl).then(done).catch(() => fallbackCopy(applyUrl, done));
+    } else fallbackCopy(applyUrl, done);
+  });
+  $('openApplyBtn').addEventListener('click', () => window.open(applyUrl, '_blank', 'noopener'));
 
   // 설정
   $('exportBtn').addEventListener('click', exportData);

@@ -225,6 +225,30 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--green); outl
 }
 .nav-fab .fab:active { transform:scale(.92); }
 .nav-fab p { font-size:10.5px; margin-top:2px; color:var(--gray-mid); font-weight:500; }
+.nav-ic { position:relative; display:inline-block; line-height:1; }
+.nav-badge {
+  position:absolute; top:-4px; right:-9px; min-width:16px; height:16px; padding:0 4px;
+  border-radius:20px; background:var(--orange); color:#fff; font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; line-height:1;
+}
+
+/* ── 신청 관리 ── */
+.app-card { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:13px 14px; margin-bottom:9px; cursor:pointer; background:var(--white); }
+.app-card.pending { border-color:var(--peach); background:#FFFCF9; }
+.app-top { display:flex; align-items:center; gap:9px; margin-bottom:5px; }
+.app-name { font-size:15px; font-weight:700; color:var(--ink); }
+.app-meta { font-size:12px; color:var(--gray); }
+.app-when { margin-left:auto; font-size:11px; color:var(--gray-mid); flex-shrink:0; }
+.app-sub { font-size:12px; color:var(--gray); }
+.app-thumbs { display:flex; gap:5px; margin-top:8px; }
+.app-thumbs img { width:44px; height:44px; border-radius:9px; object-fit:cover; }
+.badge.pending { background:var(--peach-soft); color:var(--peach-dark); }
+.badge.approved { background:var(--green-soft); color:var(--green-dark); }
+.badge.rejected { background:var(--gray-bg); color:var(--gray); }
+.consent-view { display:flex; flex-wrap:wrap; gap:5px; margin:2px 0 4px; }
+.consent-view span { font-size:11px; font-weight:600; padding:3px 8px; border-radius:20px; background:var(--green-soft); color:var(--green-dark); }
+.consent-view span.no { background:var(--gray-bg); color:var(--gray-mid); }
+.apply-url { background:var(--gray-bg); border-radius:var(--radius-sm); padding:11px 13px; font-size:12.5px; color:var(--ink); word-break:break-all; margin-bottom:10px; font-weight:600; }
 
 /* ── 모달 (바텀시트) ── */
 .modal-bg {

@@ -192,6 +192,17 @@
     </div>
 
     <div class="set-card">
+      <div class="set-title"><i class="ti ti-link"></i> 공개 신청 폼</div>
+      <p class="set-desc">이 주소를 인스타그램 프로필이나 오픈채팅방에 올려두면, 신청자가 로그인 없이 신청서를 낼 수 있어요. 들어온 신청서는 아래 [신청] 탭에서 승인하면 후보로 등록됩니다.</p>
+      <div class="apply-url" id="applyUrl"></div>
+      <div class="btn-row">
+        <button class="btn soft" id="copyApplyBtn"><i class="ti ti-copy"></i> 주소 복사</button>
+        <button class="btn ghost" id="openApplyBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
+      </div>
+      <p class="set-desc" style="margin:10px 0 0">개인정보처리방침에 <b>상호·보호책임자·문의처</b>를 채워 넣어야 해요. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--green-mid);font-weight:600">방침 열어보기</a></p>
+    </div>
+
+    <div class="set-card">
       <div class="set-title"><i class="ti ti-user-circle"></i> 계정</div>
       <p class="set-desc" id="accountEmail">로그인 정보를 불러오는 중…</p>
       <button class="btn ghost" id="logoutBtn"><i class="ti ti-logout"></i> 로그아웃</button>
@@ -203,11 +214,25 @@
     </div>
   </main>
 
+  <!-- ═══════════ 신청 관리 뷰 ═══════════ -->
+  <main class="view" id="view-applications">
+    <div class="view-header"><div class="view-title">신청 관리</div></div>
+    <p class="hint-text">공개 신청 폼(<code>/apply</code>)으로 들어온 신청서예요. 승인하면 후보 목록에 등록됩니다.</p>
+    <div class="filter-row" id="appChips">
+      <button class="chip active" data-as="pending">대기</button>
+      <button class="chip" data-as="approved">승인</button>
+      <button class="chip" data-as="rejected">반려</button>
+      <button class="chip" data-as="all">전체</button>
+    </div>
+    <div id="appList"></div>
+  </main>
+
   <!-- ═══════════ 하단 네비 ═══════════ -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-view="candidates"><i class="ti ti-users"></i><p>후보</p></button>
     <button class="nav-item" data-view="matches"><i class="ti ti-heart"></i><p>매칭</p></button>
     <button class="nav-fab" data-view="register"><span class="fab"><i class="ti ti-plus"></i></span><p>등록</p></button>
+    <button class="nav-item" data-view="applications"><span class="nav-ic"><i class="ti ti-mailbox"></i><span class="nav-badge hidden" id="appBadge">0</span></span><p>신청</p></button>
     <button class="nav-item" data-view="settings"><i class="ti ti-settings"></i><p>설정</p></button>
   </nav>
 </div>
@@ -244,6 +269,14 @@
       </div>
     </div>
     <button class="btn primary" id="createMatchBtn" disabled><i class="ti ti-heart"></i> 이 둘을 이어주기</button>
+  </div>
+</div>
+
+<!-- ═══════════ 신청서 상세 모달 ═══════════ -->
+<div class="modal-bg" id="appModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div id="appBody"></div>
   </div>
 </div>
 
