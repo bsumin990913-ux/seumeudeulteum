@@ -279,18 +279,19 @@
 <div class="modal-bg" id="createMatchModal">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
-    <div class="view-title" style="margin-bottom:12px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
+    <div class="view-title" style="margin-bottom:4px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
+    <p class="hint-text">한쪽에서 먼저 한 명을 고르면, 반대쪽 목록이 <b>잘 맞는 순서</b>로 다시 정렬돼요.</p>
     <div class="search-bar" style="margin-bottom:12px">
       <i class="ti ti-search"></i>
       <input type="text" id="pickSearchInput" placeholder="이름, 직업, 지역 검색" autocomplete="off">
     </div>
     <div class="pick-cols">
       <div class="pick-col">
-        <div class="pick-label m">남자 후보</div>
+        <div class="pick-label m" id="pickLabelM">남자 후보</div>
         <div class="pick-list" id="pickMale"></div>
       </div>
       <div class="pick-col">
-        <div class="pick-label f">여자 후보</div>
+        <div class="pick-label f" id="pickLabelF">여자 후보</div>
         <div class="pick-list" id="pickFemale"></div>
       </div>
     </div>

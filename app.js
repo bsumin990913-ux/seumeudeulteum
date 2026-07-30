@@ -978,83 +978,108 @@ function openDetail(id) {
   const hobbies = (c.hobbies || '').split(/[,、·\/]/).map(s => s.trim()).filter(Boolean);
   const activeM = activeMatchOf(id);
 
+  const recoHtml = renderRecoSection(c);
+
+  // 화면을 네 덩어리로 나눠 둡니다.
+  //   A 사진·이름   B 지금 할 일(추천·매칭)   C 프로필 내용   D 관리 도구
+  // 휴대폰에서는 A→B→C→D 순서로 쌓이고, PC에서는 A+C / B+D 두 칸으로 나뉩니다. (style.css의 .d-main/.d-side)
   $('detailBody').innerHTML = `
-    ${photos.length
-      ? Gal.html(photos)
-      : `<div class="d-nophoto"><i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>등록된 사진이 없어요</div>`}
-    <div class="d-head">
-      <span class="d-name">${escHtml(c.name)}</span>
-      <span class="badge ${st}">${STATUS_LABEL[st]}</span>
-      <button class="icon-btn" id="dPinBtn" style="margin-left:auto;background:var(--gray-bg);color:${pinnedNow ? '#E9B949' : 'var(--gray-mid)'}"><i class="ti ti-star${pinnedNow ? '-filled' : ''}"></i></button>
+   <div class="d-main">
+    <div class="d-blk-a">
+      ${photos.length
+        ? Gal.html(photos)
+        : `<div class="d-nophoto"><i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>등록된 사진이 없어요</div>`}
+      <div class="d-head">
+        <span class="d-name">${escHtml(c.name)}</span>
+        <span class="badge ${st}">${STATUS_LABEL[st]}</span>
+        ${c.promo_url ? `<span class="promo-tag"><i class="ti ti-speakerphone"></i>홍보완료</span>` : ''}
+        <button class="icon-btn" id="dPinBtn" style="margin-left:auto;background:var(--gray-bg);color:${pinnedNow ? '#E9B949' : 'var(--gray-mid)'}"><i class="ti ti-star${pinnedNow ? '-filled' : ''}"></i></button>
+      </div>
+      <div class="d-headline">${escHtml([c.birth_year ? c.birth_year + '년생' : '', c.height ? c.height + 'cm' : '', c.body_type, c.region].filter(Boolean).join(' · '))}</div>
+
+      <div class="d-actions">
+        <button class="d-act" id="dCopyBtn"><i class="ti ti-copy"></i>정보 복사</button>
+        <button class="d-act" id="dPhotoBtn"><i class="ti ti-photo-down"></i>사진 저장</button>
+        <button class="d-act accent" id="dEditBtn"><i class="ti ti-edit"></i>수정</button>
+        <button class="d-act" id="dDelBtn" style="color:#C13515"><i class="ti ti-trash"></i>삭제</button>
+      </div>
     </div>
-    <div class="d-headline">${escHtml([c.birth_year ? c.birth_year + '년생' : '', c.height ? c.height + 'cm' : '', c.body_type, c.region].filter(Boolean).join(' · '))}</div>
 
-    <div class="d-actions">
-      <button class="d-act" id="dCopyBtn"><i class="ti ti-copy"></i>정보 복사</button>
-      <button class="d-act" id="dPhotoBtn"><i class="ti ti-photo-down"></i>사진 저장</button>
-      <button class="d-act accent" id="dEditBtn"><i class="ti ti-edit"></i>수정</button>
-      <button class="d-act" id="dDelBtn" style="color:#C13515"><i class="ti ti-trash"></i>삭제</button>
-    </div>
-
-    <table class="info-table">
-      ${infoRow('phone', '연락처', c.phone)}
-      ${infoRow('briefcase', '직업', c.job + (c.work_pattern ? ` (${c.work_pattern})` : ''))}
-      ${infoRow('school', '학력', c.education)}
-      ${infoRow('building-church', '종교', c.religion)}
-      ${infoRow('puzzle', 'MBTI', c.mbti)}
-      ${infoRow('glass-full', '음주', c.drinking)}
-      ${infoRow('smoking-no', '흡연', c.smoking)}
-      ${infoRow('car', '자차', c.car)}
-    </table>
-    ${hobbies.length ? `<div class="d-section-title">취미</div><div class="tag-row">${hobbies.map(h => `<span class="tag">${escHtml(h)}</span>`).join('')}</div>` : ''}
-    ${c.personality ? `<div class="d-section-title">성격</div><p class="d-desc">${escHtml(c.personality)}</p>` : ''}
-    ${c.description ? `<div class="d-section-title">특징 메모</div><p class="d-desc">${escHtml(c.description)}</p>` : ''}
-
-    ${Object.values(ideal).some(Boolean) ? `
-    <div class="ideal-card">
-      <div class="ideal-title"><i class="ti ti-sparkles"></i> 이런 분을 기다려요</div>
+    <div class="d-blk-c">
       <table class="info-table">
-        ${infoRow('calendar', '나이', ideal.age)}
-        ${infoRow('ruler-2', '키', ideal.height)}
-        ${infoRow('map-pin', '지역', ideal.region)}
-        ${infoRow('list-numbers', '중요 순위', ideal.priority)}
-        ${infoRow('thumb-up', '선호 직업', ideal.jobs_pref)}
-        ${infoRow('thumb-down', '기피 직업', ideal.jobs_avoid)}
-        ${infoRow('message-heart', '기타', ideal.note)}
+        ${infoRow('phone', '연락처', c.phone)}
+        ${infoRow('briefcase', '직업', c.job + (c.work_pattern ? ` (${c.work_pattern})` : ''))}
+        ${infoRow('school', '학력', c.education)}
+        ${infoRow('building-church', '종교', c.religion)}
+        ${infoRow('puzzle', 'MBTI', c.mbti)}
+        ${infoRow('glass-full', '음주', c.drinking)}
+        ${infoRow('smoking-no', '흡연', c.smoking)}
+        ${infoRow('car', '자차', c.car)}
       </table>
-    </div>` : ''}
+      ${hobbies.length ? `<div class="d-section-title">취미</div><div class="tag-row">${hobbies.map(h => `<span class="tag">${escHtml(h)}</span>`).join('')}</div>` : ''}
+      ${c.personality ? `<div class="d-section-title">성격</div><p class="d-desc">${escHtml(c.personality)}</p>` : ''}
+      ${c.description ? `<div class="d-section-title">특징 메모</div><p class="d-desc">${escHtml(c.description)}</p>` : ''}
 
-    ${renderCandHistory(id)}
-    ${renderRejectionSection(id)}
-    <div style="height:14px"></div>
-
-    <div class="d-section-title"><i class="ti ti-speakerphone"></i> 스레드 홍보
-      ${c.promo_url
-        ? `<span class="promo-tag"><i class="ti ti-check"></i>홍보완료</span>${c.promo_at ? `<span class="c-meta" style="font-weight:500">${String(c.promo_at).slice(0, 10).replace(/-/g, '.')}</span>` : ''}`
-        : '<span class="c-meta" style="font-weight:500">아직 홍보 전</span>'}
+      ${Object.values(ideal).some(Boolean) ? `
+      <div class="ideal-card">
+        <div class="ideal-title"><i class="ti ti-sparkles"></i> 이런 분을 기다려요</div>
+        <table class="info-table">
+          ${infoRow('calendar', '나이', ideal.age)}
+          ${infoRow('ruler-2', '키', ideal.height)}
+          ${infoRow('map-pin', '지역', ideal.region)}
+          ${infoRow('list-numbers', '중요 순위', ideal.priority)}
+          ${infoRow('thumb-up', '선호 직업', ideal.jobs_pref)}
+          ${infoRow('thumb-down', '기피 직업', ideal.jobs_avoid)}
+          ${infoRow('message-heart', '기타', ideal.note)}
+        </table>
+      </div>` : ''}
     </div>
-    <div class="promo-link-row">
-      <input id="dPromoUrl" type="url" placeholder="홍보 글 주소(URL)를 붙여넣어 주세요" value="${escHtml(c.promo_url || '')}">
-      ${c.promo_url ? `<a class="promo-open" href="${escHtml(c.promo_url)}" target="_blank" rel="noopener" title="홍보 글 열기"><i class="ti ti-external-link"></i></a>` : ''}
+   </div>
+
+   <div class="d-side">
+    <div class="d-blk-b">
+      <div class="d-nextup">
+        ${activeM
+          ? `<div class="d-section-title" style="margin-top:0"><i class="ti ti-heart"></i> 진행 중인 매칭</div>
+             <button class="btn soft" id="dGoMatchBtn"><i class="ti ti-heart"></i> ${escHtml(candName(activeM.male_id))} ♥ ${escHtml(candName(activeM.female_id))} 보기</button>`
+          : `${recoHtml || `<div class="d-section-title" style="margin-top:0"><i class="ti ti-sparkles"></i> 추천 상대</div>
+               <p class="d-desc" style="font-size:14px;color:var(--gray-mid)">조건이 맞는 상대를 아직 못 찾았어요. 아래 버튼으로 직접 고를 수 있어요.</p>`}
+             <div style="height:10px"></div>
+             <button class="btn primary" id="dMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺어주기</button>`}
+      </div>
     </div>
-    <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
-    <div style="height:14px"></div>
 
-    <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
-    <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
-    <button class="btn soft" id="dMemoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 메모 저장</button>
-    <div style="height:14px"></div>
+    <div class="d-blk-d">
+      <div class="d-section-title"><i class="ti ti-speakerphone"></i> 스레드 홍보
+        ${c.promo_url
+          ? `<span class="promo-tag"><i class="ti ti-check"></i>홍보완료</span>${c.promo_at ? `<span class="c-meta" style="font-weight:500">${String(c.promo_at).slice(0, 10).replace(/-/g, '.')}</span>` : ''}`
+          : '<span class="c-meta" style="font-weight:500">아직 홍보 전</span>'}
+      </div>
+      <div class="promo-link-row">
+        <input id="dPromoUrl" type="url" placeholder="홍보 글 주소(URL)를 붙여넣어 주세요" value="${escHtml(c.promo_url || '')}">
+        ${c.promo_url ? `<a class="promo-open" href="${escHtml(c.promo_url)}" target="_blank" rel="noopener" title="홍보 글 열기"><i class="ti ti-external-link"></i></a>` : ''}
+      </div>
+      <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
+      <div style="height:14px"></div>
 
-    ${renderRecoSection(c)}
-    <div style="height:6px"></div>
+      <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
+      <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
+      <button class="btn soft" id="dMemoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 메모 저장</button>
+      <div style="height:14px"></div>
 
-    ${activeM
-      ? `<button class="btn soft" id="dGoMatchBtn"><i class="ti ti-heart"></i> 진행 중인 매칭 보기 (${escHtml(candName(activeM.male_id))} ♥ ${escHtml(candName(activeM.female_id))})</button>`
-      : `<button class="btn primary" id="dMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺어주기</button>`}
-    <div style="height:8px"></div>
-    <button class="btn ghost" id="dArchiveBtn">${c.archived ? '보류 해제하기' : '보류 처리하기'}</button>
-    <div style="height:8px"></div>
-    <button class="btn ghost" id="dBlacklistBtn" style="color:#C13515;border-color:#C13515">${c.blacklisted ? '블랙리스트 해제하기' : '블랙리스트 등록하기'}</button>
+      ${renderCandHistory(id)}
+      ${renderRejectionSection(id)}
+      <div style="height:14px"></div>
+
+      <button class="btn ghost" id="dArchiveBtn">${c.archived ? '보류 해제하기' : '보류 처리하기'}</button>
+      <p class="hint-text" style="margin:6px 0 0">${c.archived
+        ? '지금은 보류 상태예요. 해제하면 추천·매칭 후보로 다시 나타납니다.'
+        : '잠시 쉬어가는 분에게 쓰세요. 목록에는 그대로 남지만 추천 상대와 매칭 상대 고르기에서는 빠집니다. 언제든 되돌릴 수 있어요.'}</p>
+      <div style="height:12px"></div>
+      <button class="btn ghost" id="dBlacklistBtn" style="color:#C13515;border-color:#C13515">${c.blacklisted ? '블랙리스트 해제하기' : '블랙리스트 등록하기'}</button>
+      <p class="hint-text" style="margin:6px 0 0">후보 목록에서 숨기고 추천·매칭에서도 완전히 제외해요. 블랙리스트 필터에서 다시 볼 수 있습니다.</p>
+    </div>
+   </div>
   `;
 
   Gal.mount(photos);
@@ -1669,13 +1694,33 @@ function renderPickLists() {
       return;
     }
     const otherPick = S.pick[gender === 'm' ? 'f' : 'm'];
+    const other = otherPick ? candOf(otherPick) : null;
+
+    // 반대편에서 한 명을 고르면, 그 사람과 잘 맞는 순서로 다시 줄을 세웁니다
+    const fitOf = {};
+    if (other) {
+      list.forEach(c => { fitOf[c.id] = matchScore(other, c).score; });
+      list.sort((a, b) => {
+        if (S.pick[gender] === a.id) return -1;   // 이미 고른 사람은 항상 맨 위
+        if (S.pick[gender] === b.id) return 1;
+        return fitOf[b.id] - fitOf[a.id];
+      });
+    }
+    $(gender === 'm' ? 'pickLabelM' : 'pickLabelF').textContent =
+      `${gender === 'm' ? '남자' : '여자'} 후보${other ? ' · 잘 맞는 순' : ''}`;
+
     box.innerHTML = list.map(c => {
       const busy = activeMatchOf(c.id);
       const sel = S.pick[gender] === c.id;
       // 반대편에서 고른 사람과 거절 이력이 있으면 표시
       const rej = otherPick ? rejectionsBetween(c.id, otherPick).length : 0;
+      const s = other ? fitOf[c.id] : null;
+      const fitTag = s === null ? ''
+        : s >= 6 ? '<span class="fit-tag best">잘 맞음</span>'
+        : s >= 1 ? '<span class="fit-tag ok">조건 맞음</span>'
+        : s <= -1 ? '<span class="fit-tag bad">안 맞음</span>' : '';
       return `<div class="pick-item ${sel ? 'sel' : ''} ${gender === 'f' ? 'f-side' : ''}" data-pid="${c.id}">
-        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:12.5px;color:var(--orange)"></i>' : ''}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
+        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:12.5px;color:var(--orange)"></i>' : ''}${fitTag}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
         <span class="sub">${escHtml([ageLabel(c), c.job].filter(Boolean).join(' · '))}${busy ? ' · 매칭 진행중' : ''}</span>
       </div>`;
     }).join('');

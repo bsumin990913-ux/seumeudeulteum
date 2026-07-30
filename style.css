@@ -380,6 +380,40 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .d-desc { font-size:15px; line-height:1.7; color:#3F3F3F; white-space:pre-wrap; }
 .d-memo { background:var(--gray-bg); border-radius:var(--radius-sm); padding:11px 13px; font-size:14.5px; color:#6A6A6A; white-space:pre-wrap; }
 
+/* ── 상세 모달 레이아웃 ──
+   내용을 네 덩어리로 나눠서, 휴대폰에서는 A(사진)→B(추천·매칭)→C(프로필)→D(관리) 순으로 쌓고
+   PC에서는 왼쪽 A+C / 오른쪽 B+D 두 칸으로 펼칩니다. 추천 상대가 항상 위쪽에 보이게 하는 게 목적이에요. */
+#detailBody { display:flex; flex-direction:column; }
+#detailBody > .d-main, #detailBody > .d-side { display:contents; }
+.d-blk-a { order:1; } .d-blk-b { order:2; } .d-blk-c { order:3; } .d-blk-d { order:4; }
+
+/* 지금 할 일(추천 상대 · 매칭 맺기)을 눈에 띄게 감싸는 카드 */
+.d-nextup { border:2px solid var(--pink); background:#FFF8FB; border-radius:var(--radius-md); padding:13px 14px; margin:0 0 16px; }
+.d-nextup > .d-section-title:first-child { margin-top:0; }
+.d-nextup .reco-item { background:var(--white); }
+.d-nextup .d-desc { margin-bottom:0; }
+
+/* ── PC에서 넓게 보기 ── */
+@media (min-width:900px) {
+  #detailModal, #createMatchModal, #matchModal { align-items:center; }
+  #detailModal .modal-sheet, #createMatchModal .modal-sheet, #matchModal .modal-sheet {
+    border-radius:24px; max-height:88vh; transform:none; padding:18px 24px 28px;
+  }
+  #detailModal .modal-sheet { max-width:1000px; }
+  #createMatchModal .modal-sheet { max-width:780px; }
+  #matchModal .modal-sheet { max-width:640px; }
+  /* PC에서는 아래로 끌어내려 닫는 손잡이가 필요 없음 */
+  #detailModal .sheet-handle, #createMatchModal .sheet-handle, #matchModal .sheet-handle { display:none; }
+
+  #detailBody { flex-direction:row; align-items:flex-start; gap:30px; }
+  #detailBody > .d-main { display:block; flex:1 1 0; min-width:0; }
+  #detailBody > .d-side { display:block; flex:0 0 350px; min-width:0; }
+  #detailBody .d-track img { height:clamp(240px, 44vh, 340px); }
+
+  /* 매칭 맺기: 목록을 길게 보여줘서 스크롤을 줄임 */
+  #createMatchModal .pick-list { max-height:50vh; }
+}
+
 /* ── 매칭 상세 ── */
 .status-steps { display:flex; gap:6px; margin:14px 0; }
 .step { flex:1; text-align:center; border-radius:var(--radius-sm); padding:10px 2px; font-size:13.5px; font-weight:600; background:var(--gray-bg); color:var(--gray); border:2px solid transparent; }
@@ -418,6 +452,11 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .rej-warn { display:flex; align-items:flex-start; gap:7px; background:var(--orange-soft); color:var(--cream-dark); border-radius:var(--radius-sm); padding:10px 12px; font-size:14px; line-height:1.5; margin-bottom:10px; }
 .rej-warn i { font-size:17px; flex-shrink:0; margin-top:1px; }
 .pick-item .rej-tag { display:inline-block; font-size:11.5px; font-weight:700; color:#C13515; background:#FDECE7; padding:1px 6px; border-radius:20px; margin-left:4px; }
+/* 반대편에서 고른 사람과의 궁합 표시 */
+.pick-item .fit-tag { display:inline-block; font-size:11.5px; font-weight:700; padding:1px 6px; border-radius:20px; margin-left:4px; }
+.pick-item .fit-tag.best { background:var(--pink-dark); color:var(--white); }
+.pick-item .fit-tag.ok { background:var(--pink-soft); color:var(--pink-dark); }
+.pick-item .fit-tag.bad { background:var(--gray-bg); color:var(--gray-mid); }
 
 /* ── 매칭 타임라인 ── */
 .tl { margin:8px 0 4px; padding-left:4px; }

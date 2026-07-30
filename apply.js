@@ -13,7 +13,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const CONTACT = {
   name: '썸메이트',
   email: 'dalwoo997@gmail.com',
-  phone: ''           // 개인 번호는 공개하지 않음. 문의는 이메일로만 받습니다.
+  phone: '',          // 개인 번호는 공개하지 않음. 문의는 이메일·스레드로만 받습니다.
+  threads: '@somemate_love',
+  threadsUrl: 'https://www.threads.com/@somemate_love'
 };
 const CONSENT_VERSION = '2026-07-29';
 // ────────────────────────────────────────────────
@@ -387,9 +389,12 @@ function init() {
   $('backBtn').addEventListener('click', () => goStep(S.step - 1));
 
   // 문의처 안내 — CONTACT를 채우기 전에는 처리방침 쪽으로 안내
-  const bits = [CONTACT.email, CONTACT.phone].filter(Boolean);
+  const bits = [];
+  if (CONTACT.threads) bits.push(`스레드 <a href="${escapeHtml(CONTACT.threadsUrl)}" target="_blank" rel="noopener">${escapeHtml(CONTACT.threads)}</a>`);
+  if (CONTACT.email) bits.push(`이메일 <a href="mailto:${escapeHtml(CONTACT.email)}">${escapeHtml(CONTACT.email)}</a>`);
+  if (CONTACT.phone) bits.push(escapeHtml(CONTACT.phone));
   $('contactLine').innerHTML = bits.length
-    ? `언제든지 수정·삭제해 드립니다.<br>${escapeHtml(CONTACT.name)} · ${escapeHtml(bits.join(' · '))}`
+    ? `언제든지 수정·삭제해 드립니다. 아래로 편하게 연락 주세요.<br>${bits.join('<br>')}`
     : `언제든지 수정·삭제해 드립니다. 문의처는 <a href="privacy.html#contact" target="_blank" rel="noopener">개인정보처리방침</a>에서 확인하실 수 있어요.`;
 
   loadDraft();
