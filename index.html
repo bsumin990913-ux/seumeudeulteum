@@ -108,6 +108,7 @@
           <div class="f-field"><label>출생연도</label><input id="fBirth" placeholder="예: 1997" inputmode="numeric"></div>
           <div class="f-field"><label>키 (cm)</label><input id="fHeight" placeholder="예: 160" inputmode="numeric"></div>
           <div class="f-field"><label>체형</label><input id="fBody" placeholder="예: 마른체형"></div>
+          <div class="f-field"><label>연락처</label><input id="fPhone" type="tel" placeholder="010-0000-0000" inputmode="numeric" maxlength="13"></div>
           <div class="f-field"><label>거주지</label><input id="fRegion" placeholder="예: 대구 북구"></div>
           <div class="f-field"><label>직업</label><input id="fJob" placeholder="예: 간호사"></div>
           <div class="f-field"><label>근무 형태</label><input id="fWork" placeholder="예: 평일 9to6 고정"></div>
@@ -218,6 +219,14 @@
   <main class="view" id="view-applications">
     <div class="view-header"><div class="view-title">신청 관리</div></div>
     <p class="hint-text">공개 신청 폼(<code>/apply</code>)으로 들어온 신청서예요. 승인하면 후보 목록에 등록됩니다.</p>
+    <div class="purge-bar hidden" id="purgeBar">
+      <i class="ti ti-clock-exclamation"></i>
+      <div class="purge-text">
+        <b id="purgeCount"></b>
+        <span>개인정보처리방침에 적은 보유기간(6개월)이 지났어요</span>
+      </div>
+      <button class="purge-go" id="purgeOpenBtn">정리하기</button>
+    </div>
     <div class="filter-row" id="appChips">
       <button class="chip active" data-as="pending">대기</button>
       <button class="chip" data-as="approved">승인</button>
@@ -280,6 +289,25 @@
   </div>
 </div>
 
+<!-- ═══════════ 오래된 신청서 정리 모달 ═══════════ -->
+<div class="modal-bg" id="purgeModal">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="view-title" style="margin-bottom:4px"><i class="ti ti-clock-exclamation"></i> 오래된 신청서 정리</div>
+    <p class="hint-text" id="purgeHint"></p>
+    <div class="purge-tools">
+      <button class="chip active" id="purgeAllBtn">전체 선택</button>
+      <button class="chip" id="purgeNoneBtn">전체 해제</button>
+      <span class="purge-sel" id="purgeSel"></span>
+    </div>
+    <div id="purgeList"></div>
+    <div style="height:12px"></div>
+    <button class="btn danger-soft" id="purgeRunBtn"><i class="ti ti-trash"></i> 선택한 신청서 삭제</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost" id="purgeCancelBtn">닫기</button>
+  </div>
+</div>
+
 <!-- ═══════════ 거절 기록 모달 ═══════════ -->
 <div class="modal-bg" id="rejectModal">
   <div class="modal-sheet">
@@ -290,6 +318,10 @@
     <!-- 상대 고르기 (후보 상세에서 직접 추가할 때만 보임) -->
     <div id="rejPickWrap" class="hidden">
       <div class="f-field"><label>상대는 누구인가요?</label></div>
+      <div class="search-bar">
+        <i class="ti ti-search"></i>
+        <input type="search" id="rejSearch" placeholder="이름, 직업, 지역, 나이 검색">
+      </div>
       <div class="pick-list" id="rejPickList"></div>
       <div style="height:14px"></div>
     </div>

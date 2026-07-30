@@ -135,6 +135,13 @@ const DB = {
     this.data.applications = this.data.applications.filter(x => x.id !== id);
     return true;
   },
+  async deleteApplications(ids) {
+    if (!ids.length) return true;
+    const { error } = await sb.from('applications').delete().in('id', ids);
+    if (error) { dbErr(error); return false; }
+    this.data.applications = this.data.applications.filter(x => !ids.includes(x.id));
+    return true;
+  },
 
 };
 
@@ -222,9 +229,10 @@ function subLine(c) {
 }
 
 // ── 사진 스토리지 헬퍼 ──
-function storagePathsOf(photos) {
+function storagePathsOf(photos, bucket) {
+  const re = new RegExp(`/storage/v1/object/public/${bucket || 'photos'}/(.+)$`);
   return (photos || []).map(p => {
-    const m = String(p).match(/\/storage\/v1\/object\/public\/photos\/(.+)$/);
+    const m = String(p).match(re);
     return m ? decodeURIComponent(m[1].split('?')[0]) : null;
   }).filter(Boolean);
 }
@@ -381,7 +389,7 @@ function filteredCandidates() {
     if (S.statusFilter === 'candidate' && candStatus(c) !== 'candidate') return false;
     if (S.statusFilter === 'matched' && !activeMatchOf(c.id)) return false;
     if (q) {
-      const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo].join(' ').toLowerCase();
+      const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo, c.phone].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -713,6 +721,7 @@ const Rej = {
   who: null,       // 'left' | 'right' | 'both'
   stage: 'profile',
   after: null,
+  query: '',       // 상대 검색어
 
   openForMatch(m, memoNow) {
     this.mode = 'match';
@@ -737,6 +746,8 @@ const Rej = {
   _open(title, isMatch) {
     this.who = null;
     this.stage = 'profile';
+    this.query = '';
+    $('rejSearch').value = '';
     $('rejTitle').innerHTML = `<i class="ti ti-heart-broken"></i> ${escHtml(title)}`;
     $('rejHint').textContent = isMatch
       ? '누가 마음을 접었는지 남겨두면, 나중에 같은 조합을 다시 이어주는 실수를 막을 수 있어요.'
@@ -752,9 +763,19 @@ const Rej = {
 
   _renderPicker() {
     const box = $('rejPickList');
-    const list = DB.data.candidates.filter(c => c.gender !== this.left.gender);
+    const q = this.query.trim().toLowerCase();
+    const all = DB.data.candidates.filter(c => c.gender !== this.left.gender);
+    const list = all.filter(c => {
+      if (!q) return true;
+      // 고른 사람은 검색어와 무관하게 목록에 남겨둬야 선택이 풀리지 않음
+      if (this.right && this.right.id === c.id) return true;
+      const hay = [c.name, c.job, c.region, c.birth_year, ageLabel(c), c.education, c.mbti, c.hobbies].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
     if (!list.length) {
-      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:12px;color:var(--gray-mid)">상대로 고를 후보가 없어요</div>`;
+      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:12px;color:var(--gray-mid)">${
+        all.length ? `"${escHtml(this.query.trim())}" 검색 결과가 없어요` : '상대로 고를 후보가 없어요'
+      }</div>`;
       return;
     }
     box.innerHTML = list.map(c => {
@@ -885,6 +906,7 @@ function openDetail(id) {
     </div>
 
     <table class="info-table">
+      ${infoRow('phone', '연락처', c.phone)}
       ${infoRow('briefcase', '직업', c.job + (c.work_pattern ? ` (${c.work_pattern})` : ''))}
       ${infoRow('school', '학력', c.education)}
       ${infoRow('building-church', '종교', c.religion)}
@@ -1058,7 +1080,16 @@ function downloadPhoto(c) {
 // ═══════════════════════════════════════
 //  등록 / 수정 폼
 // ═══════════════════════════════════════
-const FORM_IDS = ['fName','fBirth','fHeight','fBody','fRegion','fJob','fWork','fEdu','fReligion','fMbti','fDrink','fSmoke','fCar','fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote'];
+const FORM_IDS = ['fName','fBirth','fHeight','fBody','fPhone','fRegion','fJob','fWork','fEdu','fReligion','fMbti','fDrink','fSmoke','fCar','fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote'];
+
+// '010-1234-5678' 꼴로 정리 (하이픈 포함 최대 13자)
+function formatPhone(v) {
+  const d = String(v ?? '').replace(/[^0-9]/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  if (d.length <= 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
 let formGender = '';
 
 function setRegMode(mode) {
@@ -1093,6 +1124,7 @@ function fillFormFrom(c) {
   $('fBirth').value = c.birth_year || '';
   $('fHeight').value = c.height || '';
   $('fBody').value = c.body_type || '';
+  $('fPhone').value = formatPhone(c.phone || '');
   $('fRegion').value = c.region || '';
   $('fJob').value = c.job || '';
   $('fWork').value = c.work_pattern || '';
@@ -1123,6 +1155,7 @@ function collectForm() {
     birth_year: $('fBirth').value.trim(),
     height: $('fHeight').value.trim().replace(/[^0-9]/g, ''),
     body_type: $('fBody').value.trim(),
+    phone: formatPhone($('fPhone').value),
     region: $('fRegion').value.trim(),
     job: $('fJob').value.trim(),
     work_pattern: $('fWork').value.trim(),
@@ -1270,10 +1303,10 @@ function runParse() {
 // ═══════════════════════════════════════
 //  엑셀 / CSV 대량 등록
 // ═══════════════════════════════════════
-const XL_HEADERS = ['이름','성별(남/여)','출생연도','키','체형','거주지','직업','근무형태','학력','종교','MBTI','음주','흡연','자차','취미','성격','특징','이상형나이','이상형키','이상형지역','중요순위','선호직업','기피직업','이상형기타'];
+const XL_HEADERS = ['이름','성별(남/여)','출생연도','키','체형','연락처','거주지','직업','근무형태','학력','종교','MBTI','음주','흡연','자차','취미','성격','특징','이상형나이','이상형키','이상형지역','중요순위','선호직업','기피직업','이상형기타'];
 
 function downloadTemplate() {
-  const example = ['봄이','여','1997','160','마른체형','대구 북구','간호사','평일 9to6 고정','전문대졸','기독교','ISFP','월 1-2회','비흡연','없음 (면허 있음)','러닝, 필라테스, 독서','낯가리지만 친해지면 엉뚱함','','연하2~연상4 (연상선호)','175cm 이상','대구, 경북','성격 > 직업안정성 > 경제력','소방관, 전문직, 공무원','간호사, 자영업, 프리랜서','다정다감하고 자상한 사람'];
+  const example = ['봄이','여','1997','160','마른체형','010-1234-5678','대구 북구','간호사','평일 9to6 고정','전문대졸','기독교','ISFP','월 1-2회','비흡연','없음 (면허 있음)','러닝, 필라테스, 독서','낯가리지만 친해지면 엉뚱함','','연하2~연상4 (연상선호)','175cm 이상','대구, 경북','성격 > 직업안정성 > 경제력','소방관, 전문직, 공무원','간호사, 자영업, 프리랜서','다정다감하고 자상한 사람'];
   const csv = '﻿' + XL_HEADERS.join(',') + '\n' + example.map(v => `"${v}"`).join(',') + '\n';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -1304,7 +1337,9 @@ function handleExcelFile(file) {
           name, gender,
           birth_year: normBirth(get(row, '출생연도')) || get(row, '출생연도'),
           height: get(row, '키').replace(/[^0-9]/g, ''),
-          body_type: get(row, '체형'), region: get(row, '거주지'),
+          body_type: get(row, '체형'),
+          phone: formatPhone(get(row, '연락처')),
+          region: get(row, '거주지'),
           job: get(row, '직업'), work_pattern: get(row, '근무형태'),
           education: get(row, '학력'), religion: get(row, '종교'),
           mbti: get(row, 'MBTI'), drinking: get(row, '음주'), smoking: get(row, '흡연'),
@@ -1710,6 +1745,112 @@ function openAppDetail(id) {
   openModal('appModal');
 }
 
+// ── 보유기간(6개월)이 지난 신청서 정리 ──
+// 개인정보처리방침에 6개월로 적어뒀기 때문에, 지난 것은 실제로 지워야 말과 행동이 맞습니다.
+const RETENTION_MONTHS = 6;
+
+function retentionCutoff() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - RETENTION_MONTHS);
+  return d;
+}
+function oldApplications() {
+  const cut = retentionCutoff().getTime();
+  return DB.data.applications
+    .filter(a => new Date(a.created_at).getTime() < cut)
+    .sort((x, y) => new Date(x.created_at) - new Date(y.created_at));   // 오래된 것부터
+}
+
+function renderPurgeBar() {
+  const n = oldApplications().length;
+  $('purgeBar').classList.toggle('hidden', n === 0);
+  if (n) $('purgeCount').textContent = `보유기간이 지난 신청서 ${n}건`;
+}
+
+const Purge = {
+  picked: new Set(),
+
+  open() {
+    const list = oldApplications();
+    if (!list.length) { toast('보유기간이 지난 신청서가 없어요'); return; }
+    this.picked = new Set(list.map(a => a.id));   // 기본은 전체 선택
+    this.render();
+    openModal('purgeModal');
+  },
+
+  render() {
+    const list = oldApplications();
+    if (!list.length) { closeModal('purgeModal'); renderAll(); return; }
+    const cut = retentionCutoff();
+    $('purgeHint').textContent =
+      `${cut.getFullYear()}년 ${cut.getMonth() + 1}월 ${cut.getDate()}일 이전에 접수된 신청서예요. 지울 것만 골라주세요.`;
+
+    $('purgeList').innerHTML = list.map(a => {
+      const linked = a.candidate_id ? candOf(a.candidate_id) : null;
+      const days = Math.floor((Date.now() - new Date(a.created_at)) / 86400000);
+      const meta = [a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.phone].filter(Boolean).join(' · ');
+      return `<div class="purge-item ${this.picked.has(a.id) ? 'on' : ''}" data-pgid="${a.id}">
+        <span class="purge-tick"><i class="ti ti-check"></i></span>
+        <div class="purge-body">
+          <div class="purge-name">${escHtml(a.name)}<span class="badge ${a.status}">${APP_STATUS_LABEL[a.status]}</span></div>
+          <div class="purge-meta">${escHtml(meta)}</div>
+          <div class="purge-meta">${String(a.created_at).slice(0, 10).replace(/-/g, '.')} 접수 · ${days}일 지남</div>
+          ${linked ? `<div class="purge-keep">후보 '${escHtml(linked.name)}'로 등록된 분이에요 — 후보 정보와 사진은 그대로 남습니다</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    $('purgeList').querySelectorAll('[data-pgid]').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = parseInt(el.dataset.pgid, 10);
+        if (this.picked.has(id)) this.picked.delete(id); else this.picked.add(id);
+        this.render();
+      });
+    });
+    $('purgeSel').textContent = `${this.picked.size} / ${list.length}건 선택`;
+    $('purgeRunBtn').disabled = this.picked.size === 0;
+  },
+
+  setAll(on) {
+    this.picked = on ? new Set(oldApplications().map(a => a.id)) : new Set();
+    this.render();
+  },
+
+  async run() {
+    const ids = [...this.picked];
+    if (!ids.length) return;
+    const targets = DB.data.applications.filter(a => ids.includes(a.id));
+    const names = targets.slice(0, 5).map(a => a.name).join(', ');
+    const more = targets.length > 5 ? ` 외 ${targets.length - 5}명` : '';
+    if (!confirm(`신청서 ${ids.length}건을 삭제할까요?\n\n${names}${more}\n\n되돌릴 수 없습니다.`)) return;
+
+    // 승인된 신청서는 후보와 사진 주소를 공유하므로, 후보가 쓰는 사진은 남겨둠
+    const inUse = new Set();
+    DB.data.candidates.forEach(c => (c.photos || []).forEach(p => inUse.add(p)));
+    const paths = [];
+    targets.forEach(a => (a.photos || []).forEach(p => {
+      if (!inUse.has(p)) paths.push(...storagePathsOf([p], 'apply'));
+    }));
+
+    const btn = $('purgeRunBtn');
+    btn.disabled = true;
+    btn.innerHTML = '삭제 중…';
+    const ok = await DB.deleteApplications(ids);
+    if (ok && paths.length) {
+      const { error } = await sb.storage.from('apply').remove(paths);
+      if (error) console.warn('[Storage] 신청 사진 삭제 실패', error);
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-trash"></i> 선택한 신청서 삭제';
+    if (!ok) return;
+
+    this.picked.clear();
+    renderAll();
+    this.render();
+    toast(`신청서 ${ids.length}건을 정리했어요`);
+  }
+};
+
 // 신청서 → 후보 등록
 async function approveApplication(a) {
   if (a.status !== 'pending') return;
@@ -1915,6 +2056,7 @@ function renderAll() {
   renderMatches();
   renderApplications();
   renderAppBadge();
+  renderPurgeBar();
 }
 
 async function init() {
@@ -1980,6 +2122,19 @@ async function init() {
     btn.addEventListener('click', () => setRegMode(btn.dataset.mode));
   });
   $('parseBtn').addEventListener('click', runParse);
+  // 연락처 칸: 숫자만 쳐도 하이픈이 들어가게
+  const fPhone = $('fPhone');
+  const fixPhone = () => {
+    const before = fPhone.value, after = formatPhone(before);
+    if (before === after) return;
+    let atEnd = true;
+    try { atEnd = fPhone.selectionStart === before.length; } catch (e) { }
+    fPhone.value = after;
+    if (atEnd) { try { fPhone.setSelectionRange(after.length, after.length); } catch (e) { } }
+  };
+  ['input', 'change', 'blur'].forEach(ev => fPhone.addEventListener(ev, fixPhone));
+  fPhone.addEventListener('paste', () => setTimeout(fixPhone, 0));
+
   $('gBtnM').addEventListener('click', () => setGender('m'));
   $('gBtnF').addEventListener('click', () => setGender('f'));
   $('formSaveBtn').addEventListener('click', saveForm);
@@ -2029,6 +2184,13 @@ async function init() {
     });
   });
 
+  // 오래된 신청서 정리
+  $('purgeOpenBtn').addEventListener('click', () => Purge.open());
+  $('purgeAllBtn').addEventListener('click', () => Purge.setAll(true));
+  $('purgeNoneBtn').addEventListener('click', () => Purge.setAll(false));
+  $('purgeRunBtn').addEventListener('click', () => Purge.run());
+  $('purgeCancelBtn').addEventListener('click', () => closeModal('purgeModal'));
+
   // 거절 기록 모달
   document.querySelectorAll('#rejStage .chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -2036,6 +2198,7 @@ async function init() {
       document.querySelectorAll('#rejStage .chip').forEach(c => c.classList.toggle('active', c === chip));
     });
   });
+  $('rejSearch').addEventListener('input', e => { Rej.query = e.target.value; Rej._renderPicker(); });
   $('rejSaveBtn').addEventListener('click', () => Rej.save());
   $('rejSkipBtn').addEventListener('click', () => Rej.skip());
 

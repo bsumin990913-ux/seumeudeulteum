@@ -11,9 +11,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ── 운영자가 채워 넣을 값 ──────────────────────────
 // 개인정보처리방침(privacy.html)의 문의처와 반드시 같게 맞춰주세요.
 const CONTACT = {
-  name: '스며들틈',
-  email: '',          // 예: 'hello@example.com'
-  phone: ''           // 예: '010-0000-0000'
+  name: '스며들틈/썸메이트',
+  email: 'dalwoo997@gmail.com',
+  phone: ''           // 개인 번호는 공개하지 않음. 문의는 이메일로만 받습니다.
 };
 const CONSENT_VERSION = '2026-07-29';
 // ────────────────────────────────────────────────
@@ -52,6 +52,15 @@ function toast(msg) {
 }
 const val = id => ($(id).value || '').trim();
 const digits = s => String(s || '').replace(/[^0-9]/g, '');
+
+// 숫자만 남긴 뒤 010-1234-5678 꼴로 바꿔줌 (하이픈 포함 최대 13자)
+function formatPhone(v) {
+  const d = digits(v).slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  if (d.length <= 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
 
 // ═══════════════════════════════════════
 //  단계 이동
@@ -355,6 +364,21 @@ function init() {
     });
   });
 
+  // 연락처: 입력하는 대로 하이픈을 넣어줌 (숫자만 남기고 다시 조립)
+  const phone = $('fPhone');
+  const reformatPhone = () => {
+    const before = phone.value;
+    const after = formatPhone(before);
+    if (before === after) return;
+    let atEnd = true;
+    try { atEnd = phone.selectionStart === before.length; } catch (e) { }
+    phone.value = after;
+    if (atEnd) { try { phone.setSelectionRange(after.length, after.length); } catch (e) { } }
+  };
+  // input 외에 change/blur도 걸어둠 — 브라우저 자동완성은 input이 안 뜨는 경우가 있음
+  ['input', 'change', 'blur'].forEach(ev => phone.addEventListener(ev, reformatPhone));
+  phone.addEventListener('paste', () => setTimeout(reformatPhone, 0));
+
   $('nextBtn').addEventListener('click', () => {
     if (S.step === 5) { submit(); return; }
     if (!validateStep()) return;
@@ -369,6 +393,7 @@ function init() {
     : `언제든지 수정·삭제해 드립니다. 문의처는 <a href="privacy.html#contact" target="_blank" rel="noopener">개인정보처리방침</a>에서 확인하실 수 있어요.`;
 
   loadDraft();
+  reformatPhone();   // 임시저장에서 불러온 번호도 하이픈 형식으로 맞춰줌
   syncConsent();
   goStep(0);
 }
