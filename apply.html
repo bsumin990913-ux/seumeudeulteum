@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>스며들틈 소개팅 신청</title>
-<meta name="description" content="스며들틈에 소개팅을 신청합니다. 작성해 주신 정보는 매칭에만 사용됩니다.">
+<title>스며들틈/썸메이트 소개팅 신청</title>
+<meta name="description" content="스며들틈/썸메이트에 소개팅을 신청합니다. 작성해 주신 정보는 매칭에만 사용됩니다.">
 <meta name="theme-color" content="#ffffff">
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="apply.css">
@@ -14,7 +14,7 @@
 <div class="topbar">
   <div class="topbar-row">
     <button class="back-btn hidden" id="backBtn" aria-label="이전 단계">‹</button>
-    <span class="brand">스며들틈 소개팅 신청</span>
+    <span class="brand">스며들틈/썸메이트 소개팅 신청</span>
     <span class="step-count" id="stepCount"></span>
   </div>
   <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
@@ -231,7 +231,7 @@
 
     <div class="field">
       <label class="lb" for="fPhone">연락처<span class="req">*</span></label>
-      <input type="tel" id="fPhone" placeholder="010-0000-0000" inputmode="tel" maxlength="20" autocomplete="tel">
+      <input type="tel" id="fPhone" placeholder="010-0000-0000" inputmode="numeric" maxlength="13" autocomplete="tel">
       <p class="err hidden" id="errPhone">연락 가능한 휴대폰 번호를 입력해 주세요</p>
     </div>
 
