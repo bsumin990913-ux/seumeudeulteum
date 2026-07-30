@@ -173,18 +173,20 @@ const S = {
   detailId: null,
   matchDetailId: null,
   pick: { m: null, f: null },
+  pickSearch: '',
   excelRows: null
 };
 
 // ═══════════════════════════════════════
 //  파생 정보
 // ═══════════════════════════════════════
-const STATUS_LABEL = { candidate: '대기중', exchanging: '사진교환', some: '썸', success: '성사', ended: '종료', archived: '보류' };
+const STATUS_LABEL = { candidate: '대기중', exchanging: '사진교환', some: '썸', success: '성사', ended: '종료', archived: '보류', blacklist: '블랙' };
 
 function activeMatchOf(cid) {
   return DB.data.matches.find(m => (m.male_id === cid || m.female_id === cid) && m.status !== 'ended');
 }
 function candStatus(c) {
+  if (c.blacklisted) return 'blacklist';
   const m = activeMatchOf(c.id);
   if (m) return m.status;
   return c.archived ? 'archived' : 'candidate';
@@ -386,6 +388,9 @@ function filteredCandidates() {
   const q = S.search.toLowerCase();
   let list = DB.data.candidates.filter(c => {
     if (S.gender !== 'all' && c.gender !== S.gender) return false;
+    // 블랙리스트 탭에서만 블랙리스트 후보를 보여주고, 나머지 탭에서는 숨김
+    if (S.statusFilter === 'blacklist') { if (!c.blacklisted) return false; }
+    else if (c.blacklisted) return false;
     if (S.statusFilter === 'candidate' && candStatus(c) !== 'candidate') return false;
     if (S.statusFilter === 'matched' && !activeMatchOf(c.id)) return false;
     if (q) {
@@ -414,7 +419,7 @@ function filteredCandidates() {
 
 function emptyHtml(text, sub) {
   return `<div class="empty">
-    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFC2D2"/><circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/><path d="M26 42Q32 38 38 42" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFE9F1"/><circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/><path d="M26 42Q32 38 38 42" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
     <p class="empty-text">${escHtml(text)}</p>
     <p class="empty-sub">${escHtml(sub)}</p>
   </div>`;
@@ -540,7 +545,7 @@ function renderRecoSection(c) {
   if (activeMatchOf(c.id)) return ''; // 이미 매칭 진행 중이면 추천 생략
   // 이미 거절 기록이 있는 상대는 추천에서 뺌
   const targets = DB.data.candidates.filter(t =>
-    t.gender !== c.gender && !t.archived && !activeMatchOf(t.id) && !rejectionsBetween(c.id, t.id).length);
+    t.gender !== c.gender && !t.archived && !t.blacklisted && !activeMatchOf(t.id) && !rejectionsBetween(c.id, t.id).length);
   const scored = targets.map(t => Object.assign({ t }, matchScore(c, t)))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -550,10 +555,10 @@ function renderRecoSection(c) {
     <div class="reco-item" data-rid="${x.t.id}">
       ${avatarHtml(x.t, 'c-avatar')}
       <div style="min-width:0;flex:1">
-        <div style="font-size:14px;font-weight:700">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
+        <div style="font-size:15.5px;font-weight:700">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
         <div class="reco-tags">${x.reasons.map(r => `<span class="reco-tag ${r.ok ? '' : 'bad'}">${escHtml(r.label)}</span>`).join('')}</div>
       </div>
-      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" style="background:var(--pink-soft);color:var(--pink-strong);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
+      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" style="background:var(--peach-soft);color:var(--peach-mid);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
     </div>`).join('');
 }
 
@@ -773,7 +778,7 @@ const Rej = {
       return hay.includes(q);
     });
     if (!list.length) {
-      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:12px;color:var(--gray-mid)">${
+      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:13.5px;color:var(--gray-mid)">${
         all.length ? `"${escHtml(this.query.trim())}" 검색 결과가 없어요` : '상대로 고를 후보가 없어요'
       }</div>`;
       return;
@@ -902,7 +907,7 @@ function openDetail(id) {
       <button class="d-act" id="dCopyBtn"><i class="ti ti-copy"></i>정보 복사</button>
       <button class="d-act" id="dPhotoBtn"><i class="ti ti-photo-down"></i>사진 저장</button>
       <button class="d-act accent" id="dEditBtn"><i class="ti ti-edit"></i>수정</button>
-      <button class="d-act" id="dDelBtn" style="color:#A32D2D"><i class="ti ti-trash"></i>삭제</button>
+      <button class="d-act" id="dDelBtn" style="color:#C13515"><i class="ti ti-trash"></i>삭제</button>
     </div>
 
     <table class="info-table">
@@ -950,6 +955,8 @@ function openDetail(id) {
       : `<button class="btn primary" id="dMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺어주기</button>`}
     <div style="height:8px"></div>
     <button class="btn ghost" id="dArchiveBtn">${c.archived ? '보류 해제하기' : '보류 처리하기'}</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost" id="dBlacklistBtn" style="color:#C13515;border-color:#C13515">${c.blacklisted ? '블랙리스트 해제하기' : '블랙리스트 등록하기'}</button>
   `;
 
   Gal.mount(photos);
@@ -967,6 +974,14 @@ function openDetail(id) {
   $('dArchiveBtn').onclick = async () => {
     const r = await DB.updateCandidate(id, { archived: !c.archived });
     if (!r) return;
+    openDetail(id);
+    renderCandidates();
+  };
+  $('dBlacklistBtn').onclick = async () => {
+    if (!c.blacklisted && !confirm(`'${c.name}' 님을 블랙리스트에 등록할까요?\n후보 목록·추천·매칭 상대에서 제외됩니다.`)) return;
+    const r = await DB.updateCandidate(id, { blacklisted: !c.blacklisted });
+    if (!r) return;
+    toast(c.blacklisted ? '블랙리스트에서 해제했어요' : '블랙리스트에 등록했어요');
     openDetail(id);
     renderCandidates();
   };
@@ -1291,7 +1306,7 @@ function runParse() {
   if (!r.fields.name) missing.push('이름');
   missing.push(!formGender ? '성별' : null);
   const missTxt = missing.filter(Boolean).length
-    ? `<span style="color:var(--powder-dark);font-weight:600"> · ${missing.filter(Boolean).join(', ')} 직접 입력 필요</span>` : '';
+    ? `<span style="color:var(--peach-mid);font-weight:600"> · ${missing.filter(Boolean).join(', ')} 직접 입력 필요</span>` : '';
   $('parseSummary').innerHTML = `
     <div class="parse-head" style="margin-bottom:14px">
       <span class="title"><i class="ti ti-wand"></i> 자동 인식 결과</span>
@@ -1359,7 +1374,7 @@ function handleExcelFile(file) {
         <div class="parse-head">
           <span class="title">읽기 완료</span>
           <span class="count-pill">${parsed.length}명</span>
-          ${skipped.length ? `<span style="font-size:12px;color:var(--powder-dark)">이름/성별 누락 ${skipped.length}행 제외</span>` : ''}
+          ${skipped.length ? `<span style="font-size:13.5px;color:var(--peach-mid)">이름/성별 누락 ${skipped.length}행 제외</span>` : ''}
         </div>
         <table class="parse-table">
           ${parsed.slice(0, 8).map(p => `<tr><td>${escHtml(p.name)} (${p.gender === 'm' ? '남' : '여'})</td><td>${escHtml([p.birth_year ? p.birth_year + '년생' : '', p.job, p.region].filter(Boolean).join(' · '))}</td></tr>`).join('')}
@@ -1412,7 +1427,7 @@ function renderMatches() {
           <div style="min-width:0"><div class="m-name">${escHtml(candName(m.female_id))}</div><div class="m-meta">${fc ? escHtml([ageLabel(fc), fc.job].filter(Boolean).join(' · ')) : ''}</div></div>
         </div>
       </div>
-      ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:12px"></i> ${escHtml(m.memo)}</div>` : ''}
+      ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:13.5px"></i> ${escHtml(m.memo)}</div>` : ''}
       <div class="m-foot">
         <span class="m-date">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</span>
         <span class="badge ${m.status}">${STATUS_LABEL[m.status]}</span>
@@ -1522,16 +1537,27 @@ function openCreateMatch(preselect, partner) {
   S.pick = { m: null, f: null };
   if (preselect) S.pick[preselect.gender] = preselect.id;
   if (partner) S.pick[partner.gender] = partner.id;
+  S.pickSearch = '';
+  $('pickSearchInput').value = '';
   renderPickLists();
   openModal('createMatchModal');
 }
 
 function renderPickLists() {
+  const q = (S.pickSearch || '').toLowerCase();
   const render = (gender, boxId) => {
     const box = $(boxId);
-    const list = DB.data.candidates.filter(c => c.gender === gender && !c.archived);
+    const list = DB.data.candidates.filter(c => {
+      if (c.gender !== gender || c.archived || c.blacklisted) return false;
+      if (S.pick[gender] === c.id) return true; // 이미 고른 사람은 검색어와 무관하게 계속 보여줌
+      if (q) {
+        const hay = [c.name, c.job, c.region].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
     if (!list.length) {
-      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:12px;color:var(--gray-mid)">등록된 ${gender === 'm' ? '남자' : '여자'} 후보가 없어요</div>`;
+      box.innerHTML = `<div style="padding:16px;text-align:center;font-size:13.5px;color:var(--gray-mid)">${q ? '검색 결과가 없어요' : `등록된 ${gender === 'm' ? '남자' : '여자'} 후보가 없어요`}</div>`;
       return;
     }
     const otherPick = S.pick[gender === 'm' ? 'f' : 'm'];
@@ -1541,7 +1567,7 @@ function renderPickLists() {
       // 반대편에서 고른 사람과 거절 이력이 있으면 표시
       const rej = otherPick ? rejectionsBetween(c.id, otherPick).length : 0;
       return `<div class="pick-item ${sel ? 'sel' : ''} ${gender === 'f' ? 'f-side' : ''}" data-pid="${c.id}">
-        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:11px;color:var(--pink-strong)"></i>' : ''}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
+        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:12.5px;color:var(--orange)"></i>' : ''}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
         <span class="sub">${escHtml([ageLabel(c), c.job].filter(Boolean).join(' · '))}${busy ? ' · 매칭 진행중' : ''}</span>
       </div>`;
     }).join('');
@@ -2166,6 +2192,7 @@ async function init() {
 
   // 매칭
   $('newMatchBtn').addEventListener('click', () => openCreateMatch());
+  $('pickSearchInput').addEventListener('input', e => { S.pickSearch = e.target.value.trim(); renderPickLists(); });
   $('createMatchBtn').addEventListener('click', createMatch);
   document.querySelectorAll('#matchChips .chip').forEach(chip => {
     chip.addEventListener('click', () => {

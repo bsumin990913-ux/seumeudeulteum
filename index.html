@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>썸메이트 — 매칭 관리</title>
-<meta name="theme-color" content="#FFE8F0">
+<meta name="theme-color" content="#ffffff">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.1/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +15,7 @@
   <header class="app-header">
     <div class="header-top">
       <svg class="logo-svg" width="40" height="40" viewBox="0 0 64 64" aria-hidden="true">
-        <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FF7CB6"/>
+        <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFD6E4"/>
         <circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/>
         <path d="M26 40Q32 46 38 40" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/>
         <circle cx="17.5" cy="36" r="3.5" fill="#FD1569" opacity=".4"/><circle cx="46.5" cy="36" r="3.5" fill="#FD1569" opacity=".4"/>
@@ -48,6 +48,7 @@
       <button class="chip" data-g="f">여자</button>
       <button class="chip" data-g="__status" data-s="candidate">대기중</button>
       <button class="chip" data-g="__status" data-s="matched">매칭중</button>
+      <button class="chip" data-g="__status" data-s="blacklist">블랙리스트</button>
     </div>
     <div class="filter-selects">
       <select class="mini-select" id="sortSelect">
@@ -163,7 +164,7 @@
   <main class="view" id="view-matches">
     <div class="view-header">
       <div class="view-title">매칭 관리</div>
-      <button class="btn dark" style="width:auto;padding:8px 16px;font-size:13px" id="newMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺기</button>
+      <button class="btn dark" style="width:auto;padding:8px 16px;font-size:14.5px" id="newMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺기</button>
     </div>
     <div class="filter-row" id="matchChips">
       <button class="chip active" data-ms="all">전체</button>
@@ -200,7 +201,7 @@
         <button class="btn soft" id="copyApplyBtn"><i class="ti ti-copy"></i> 주소 복사</button>
         <button class="btn ghost" id="openApplyBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0">개인정보처리방침에 <b>상호·보호책임자·문의처</b>를 채워 넣어야 해요. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-deep);font-weight:600">방침 열어보기</a></p>
+      <p class="set-desc" style="margin:10px 0 0">개인정보처리방침에 <b>상호·보호책임자·문의처</b>를 채워 넣어야 해요. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-mid);font-weight:600">방침 열어보기</a></p>
     </div>
 
     <div class="set-card">
@@ -267,6 +268,10 @@
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="view-title" style="margin-bottom:12px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
+    <div class="search-bar" style="margin-bottom:12px">
+      <i class="ti ti-search"></i>
+      <input type="text" id="pickSearchInput" placeholder="이름, 직업, 지역 검색" autocomplete="off">
+    </div>
     <div class="pick-cols">
       <div class="pick-col">
         <div class="pick-label m">남자 후보</div>
@@ -352,7 +357,7 @@
 <div id="gate">
   <div class="gate-box">
     <svg width="72" height="72" viewBox="0 0 64 64" aria-hidden="true">
-      <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FF7CB6"/>
+      <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFD6E4"/>
       <circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/>
       <path d="M26 40Q32 46 38 40" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/>
       <circle cx="17.5" cy="36" r="3.5" fill="#FD1569" opacity=".4"/><circle cx="46.5" cy="36" r="3.5" fill="#FD1569" opacity=".4"/>
@@ -361,7 +366,7 @@
     <div class="gate-sub">관리자 로그인이 필요해요</div>
     <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username">
     <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
-    <p id="loginError" style="font-size:12.5px;color:#A32D2D;margin:-2px 0 10px;min-height:18px"></p>
+    <p id="loginError" style="font-size:14px;color:#C13515;margin:-2px 0 10px;min-height:18px"></p>
     <button class="btn primary" id="loginBtn"><i class="ti ti-login-2"></i> 로그인</button>
   </div>
 </div>
