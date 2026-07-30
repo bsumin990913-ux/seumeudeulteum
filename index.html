@@ -48,17 +48,21 @@
       <button class="chip" data-g="f">여자</button>
       <button class="chip" data-g="__status" data-s="candidate">대기중</button>
       <button class="chip" data-g="__status" data-s="matched">매칭중</button>
+      <button class="chip" data-g="__status" data-s="nopromo">홍보전</button>
+      <button class="chip" data-g="__status" data-s="promo">홍보완료</button>
       <button class="chip" data-g="__status" data-s="blacklist">블랙리스트</button>
     </div>
     <div class="filter-selects">
       <select class="mini-select" id="sortSelect">
         <option value="latest">최신 등록순</option>
+        <option value="oldest">오래된 등록순</option>
         <option value="young">나이 어린순</option>
         <option value="old">나이 많은순</option>
         <option value="tall">키 큰순</option>
         <option value="short">키 작은순</option>
         <option value="name">이름순</option>
       </select>
+      <button class="view-toggle" id="selectToggle" title="여러 명 선택"><i class="ti ti-checkbox"></i></button>
       <button class="view-toggle" id="viewToggle" title="보기 전환"><i class="ti ti-layout-grid"></i></button>
     </div>
     <div id="candidateList"></div>
@@ -236,6 +240,14 @@
     </div>
     <div id="appList"></div>
   </main>
+
+  <!-- ═══════════ 일괄 작업 바 (선택 모드) ═══════════ -->
+  <div class="bulk-bar hidden" id="bulkBar">
+    <button class="bulk-check" id="bulkAllBtn">전체</button>
+    <span class="bulk-count" id="bulkCount">0명 선택</span>
+    <button class="bulk-btn black" id="bulkBlacklistBtn"><i class="ti ti-ban"></i> 블랙</button>
+    <button class="bulk-btn danger" id="bulkDeleteBtn"><i class="ti ti-trash"></i> 삭제</button>
+  </div>
 
   <!-- ═══════════ 하단 네비 ═══════════ -->
   <nav class="bottom-nav">

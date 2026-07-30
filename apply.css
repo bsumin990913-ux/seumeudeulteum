@@ -185,6 +185,18 @@ input.bad, textarea.bad { border-color:var(--error); }
   font-size:34px; display:flex; align-items:center; justify-content:center; margin:0 auto 24px;
 }
 
+/* ── 완료 화면: 스레드 DM 안내 ── */
+.threads-card { border:2px solid var(--accent); background:#fff7fa; }
+.threads-btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  width:100%; margin-top:16px; padding:15px 20px;
+  background:#111; color:#fff; text-decoration:none;
+  font-size:17px; font-weight:700; letter-spacing:-.7px;
+  border-radius:var(--r-action); transition:opacity .15s;
+}
+.threads-btn:active { opacity:.85; }
+.threads-note { font-size:14px; font-weight:500; color:var(--muted); margin-top:10px; text-align:center; }
+
 /* ── 개인정보처리방침 페이지 ── */
 .doc { max-width:720px; margin:0 auto; padding:32px 20px 80px; }
 .doc h1 { font-size:26px; margin-bottom:8px; }

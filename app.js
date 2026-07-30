@@ -66,6 +66,31 @@ const DB = {
     if (i > -1) this.data.candidates[i] = data;
     return data;
   },
+  async updateCandidates(ids, patch) {
+    if (!ids.length) return true;
+    patch.updated_at = nowStr();
+    const { data, error } = await sb.from('candidates').update(patch).in('id', ids).select();
+    if (error) { dbErr(error); return false; }
+    (data || []).forEach(row => {
+      const i = this.data.candidates.findIndex(x => x.id === row.id);
+      if (i > -1) this.data.candidates[i] = row;
+    });
+    return true;
+  },
+  async deleteCandidates(ids) {
+    if (!ids.length) return true;
+    const targets = this.data.candidates.filter(c => ids.includes(c.id));
+    const { error } = await sb.from('candidates').delete().in('id', ids);
+    if (error) { dbErr(error); return false; }
+    // 스토리지에 올라간 사진도 정리 (실패해도 무시)
+    const paths = [];
+    targets.forEach(c => paths.push(...storagePathsOf(c.photos)));
+    if (paths.length) { try { sb.storage.from('photos').remove(paths); } catch (e) { } }
+    this.data.candidates = this.data.candidates.filter(x => !ids.includes(x.id));
+    this.data.matches = this.data.matches.filter(m => !ids.includes(m.male_id) && !ids.includes(m.female_id));
+    this.data.rejections = this.data.rejections.filter(r => !ids.includes(r.from_id) && !ids.includes(r.to_id));
+    return true;
+  },
   async deleteCandidate(id) {
     const cand = this.data.candidates.find(x => x.id === id);
     const { error } = await sb.from('candidates').delete().eq('id', id);
@@ -164,6 +189,8 @@ const S = {
   search: '',
   sort: localStorage.getItem('sdt_sort') || 'latest',
   listMode: localStorage.getItem('sdt_view') || 'list',
+  selectMode: false,
+  selected: new Set(),
   regMode: 'paste',
   editingId: null,
   formPhotos: [],
@@ -393,6 +420,8 @@ function filteredCandidates() {
     else if (c.blacklisted) return false;
     if (S.statusFilter === 'candidate' && candStatus(c) !== 'candidate') return false;
     if (S.statusFilter === 'matched' && !activeMatchOf(c.id)) return false;
+    if (S.statusFilter === 'promo' && !c.promo_url) return false;
+    if (S.statusFilter === 'nopromo' && c.promo_url) return false;
     if (q) {
       const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo, c.phone].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
@@ -412,6 +441,7 @@ function filteredCandidates() {
     if (S.sort === 'young') return (parseInt(b.birth_year) || 0) - (parseInt(a.birth_year) || 0);
     if (S.sort === 'old') return (parseInt(a.birth_year) || 9999) - (parseInt(b.birth_year) || 9999);
     if (S.sort === 'name') return (a.name || '').localeCompare(b.name || '', 'ko');
+    if (S.sort === 'oldest') return a.id - b.id;
     return b.id - a.id;
   });
   return list;
@@ -442,14 +472,19 @@ function renderCandidates() {
     return;
   }
   const pinned = Pin.get();
+  const selTick = c => S.selectMode ? `<span class="sel-tick"><i class="ti ti-check"></i></span>` : '';
+  const selCls = c => S.selectMode && S.selected.has(c.id) ? 'selected' : '';
+  const promoTag = c => c.promo_url ? `<span class="promo-tag"><i class="ti ti-speakerphone"></i>홍보완료</span>` : '';
   if (S.listMode === 'album') {
     box.innerHTML = `<div class="album-grid">` + list.map(c => {
       const st = candStatus(c);
       const photo = c.photos && c.photos[0];
-      return `<div class="a-card ${pinned.includes(c.id) ? 'pinned' : ''}" data-id="${c.id}">
+      return `<div class="a-card ${pinned.includes(c.id) ? 'pinned' : ''} ${selCls(c)}" data-id="${c.id}">
+        ${selTick(c)}
         <div class="a-photo ${c.gender === 'm' ? 'male' : ''}">
           ${photo ? `<img src="${photo}" alt="">` : `<i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>`}
           <span class="badge ${st}">${STATUS_LABEL[st]}</span>
+          ${promoTag(c)}
           ${pinned.includes(c.id) ? '<i class="ti ti-star-filled pin-star"></i>' : ''}
         </div>
         <div class="a-body">
@@ -461,21 +496,72 @@ function renderCandidates() {
   } else {
     box.innerHTML = list.map(c => {
       const st = candStatus(c);
-      return `<div class="c-card ${pinned.includes(c.id) ? 'pinned' : ''}" data-id="${c.id}">
+      return `<div class="c-card ${pinned.includes(c.id) ? 'pinned' : ''} ${selCls(c)}" data-id="${c.id}">
+        ${selTick(c)}
         <div class="c-row">
           ${avatarHtml(c, 'c-avatar')}
           <div class="c-info">
-            <div class="c-name">${escHtml(c.name)} ${pinned.includes(c.id) ? '<i class="ti ti-star-filled pin-star"></i>' : ''} <span class="c-meta">${escHtml(metaLine(c))}</span></div>
+            <div class="c-name">${escHtml(c.name)} ${pinned.includes(c.id) ? '<i class="ti ti-star-filled pin-star"></i>' : ''} ${promoTag(c)} <span class="c-meta">${escHtml(metaLine(c))}</span></div>
             <div class="c-sub">${escHtml(subLine(c))}</div>
           </div>
-          <span class="badge ${st}">${STATUS_LABEL[st]}</span>
+          <span class="badge ${st}" ${S.selectMode ? 'style="margin-right:22px"' : ''}>${STATUS_LABEL[st]}</span>
         </div>
       </div>`;
     }).join('');
   }
   box.querySelectorAll('[data-id]').forEach(el => {
-    el.addEventListener('click', () => openDetail(parseInt(el.dataset.id, 10)));
+    el.addEventListener('click', () => {
+      const id = parseInt(el.dataset.id, 10);
+      if (S.selectMode) {
+        if (S.selected.has(id)) S.selected.delete(id); else S.selected.add(id);
+        el.classList.toggle('selected', S.selected.has(id));
+        syncBulkBar();
+        return;
+      }
+      openDetail(id);
+    });
   });
+  syncBulkBar();
+}
+
+// ── 선택 모드 / 일괄 작업 ──
+function syncBulkBar() {
+  const show = S.selectMode && S.view === 'candidates';
+  $('bulkBar').classList.toggle('hidden', !show);
+  if (!show) return;
+  const n = S.selected.size;
+  $('bulkCount').textContent = n ? `${n}명 선택` : '카드를 눌러 선택하세요';
+  $('bulkBlacklistBtn').disabled = !n;
+  $('bulkDeleteBtn').disabled = !n;
+}
+
+function setSelectMode(on) {
+  S.selectMode = on;
+  S.selected.clear();
+  $('selectToggle').classList.toggle('on', on);
+  renderCandidates();
+}
+
+async function bulkBlacklist() {
+  const ids = [...S.selected];
+  if (!ids.length) return;
+  const names = ids.slice(0, 5).map(candName).join(', ') + (ids.length > 5 ? ` 외 ${ids.length - 5}명` : '');
+  if (!confirm(`${ids.length}명을 블랙리스트에 등록할까요?\n\n${names}\n\n후보 목록·추천·매칭 상대에서 제외됩니다.`)) return;
+  if (!(await DB.updateCandidates(ids, { blacklisted: true }))) return;
+  setSelectMode(false);
+  renderAll();
+  toast(`${ids.length}명을 블랙리스트에 등록했어요`);
+}
+
+async function bulkDelete() {
+  const ids = [...S.selected];
+  if (!ids.length) return;
+  const names = ids.slice(0, 5).map(candName).join(', ') + (ids.length > 5 ? ` 외 ${ids.length - 5}명` : '');
+  if (!confirm(`${ids.length}명을 완전히 삭제할까요?\n\n${names}\n\n연결된 매칭·거절 기록도 함께 삭제되고, 되돌릴 수 없습니다.`)) return;
+  if (!(await DB.deleteCandidates(ids))) return;
+  setSelectMode(false);
+  renderAll();
+  toast(`${ids.length}명을 삭제했어요`);
 }
 
 // ═══════════════════════════════════════
@@ -942,6 +1028,18 @@ function openDetail(id) {
     ${renderRejectionSection(id)}
     <div style="height:14px"></div>
 
+    <div class="d-section-title"><i class="ti ti-speakerphone"></i> 스레드 홍보
+      ${c.promo_url
+        ? `<span class="promo-tag"><i class="ti ti-check"></i>홍보완료</span>${c.promo_at ? `<span class="c-meta" style="font-weight:500">${String(c.promo_at).slice(0, 10).replace(/-/g, '.')}</span>` : ''}`
+        : '<span class="c-meta" style="font-weight:500">아직 홍보 전</span>'}
+    </div>
+    <div class="promo-link-row">
+      <input id="dPromoUrl" type="url" placeholder="홍보 글 주소(URL)를 붙여넣어 주세요" value="${escHtml(c.promo_url || '')}">
+      ${c.promo_url ? `<a class="promo-open" href="${escHtml(c.promo_url)}" target="_blank" rel="noopener" title="홍보 글 열기"><i class="ti ti-external-link"></i></a>` : ''}
+    </div>
+    <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
+    <div style="height:14px"></div>
+
     <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
     <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
     <button class="btn soft" id="dMemoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 메모 저장</button>
@@ -993,6 +1091,16 @@ function openDetail(id) {
   $('dMemoSaveBtn').onclick = async () => {
     const r = await DB.updateCandidate(id, { admin_memo: $('dAdminMemo').value.trim() });
     if (r) toast('관리자 메모가 저장되었어요');
+  };
+  // 스레드 홍보 링크 저장
+  $('dPromoSaveBtn').onclick = async () => {
+    const url = $('dPromoUrl').value.trim();
+    if (url && !/^https?:\/\//i.test(url)) { toast('http:// 또는 https:// 로 시작하는 주소를 넣어주세요'); return; }
+    const r = await DB.updateCandidate(id, { promo_url: url, promo_at: url ? (c.promo_at || nowStr()) : null });
+    if (!r) return;
+    toast(url ? '홍보완료로 표시했어요' : '홍보 표시를 지웠어요');
+    openDetail(id);
+    renderCandidates();
   };
   // 매칭 기록 → 해당 매칭 상세로
   $('detailBody').querySelectorAll('.cand-hist').forEach(el => {
@@ -2070,6 +2178,7 @@ function switchView(view) {
   S.view = view;
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   document.querySelectorAll('.bottom-nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  syncBulkBar();   // 후보 탭을 벗어나면 일괄 작업 바 숨김
   window.scrollTo(0, 0);
 }
 
@@ -2141,6 +2250,18 @@ async function init() {
     $('viewToggle').innerHTML = `<i class="ti ti-${S.listMode === 'list' ? 'layout-grid' : 'list'}"></i>`;
     renderCandidates();
   });
+
+  // 선택 모드 / 일괄 작업
+  $('selectToggle').addEventListener('click', () => setSelectMode(!S.selectMode));
+  $('bulkAllBtn').addEventListener('click', () => {
+    const list = filteredCandidates();
+    // 화면에 보이는 후보 기준: 전부 선택돼 있으면 해제, 아니면 전체 선택
+    const allOn = list.length && list.every(c => S.selected.has(c.id));
+    S.selected = allOn ? new Set() : new Set(list.map(c => c.id));
+    renderCandidates();
+  });
+  $('bulkBlacklistBtn').addEventListener('click', bulkBlacklist);
+  $('bulkDeleteBtn').addEventListener('click', bulkDelete);
   $('viewToggle').innerHTML = `<i class="ti ti-${S.listMode === 'list' ? 'layout-grid' : 'list'}"></i>`;
 
   // 등록

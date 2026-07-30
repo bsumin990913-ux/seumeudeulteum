@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   스며들틈 — 관리자 도구 v3 (Supabase 클라우드 + 스토리지)
+   썸메이트 — 관리자 도구 v3 (Supabase 클라우드 + 스토리지)
 ═══════════════════════════════════════ */
 
 const SUPABASE_URL = 'https://ypvlrgwtelbocuefhwxy.supabase.co';
@@ -331,7 +331,7 @@ function filteredCandidates() {
 
 function emptyHtml(text, sub) {
   return `<div class="empty">
-    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#E8F0CB"/><circle cx="24" cy="30" r="3" fill="#415111"/><circle cx="40" cy="30" r="3" fill="#415111"/><path d="M26 42Q32 38 38 42" stroke="#415111" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFE9F1"/><circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/><path d="M26 42Q32 38 38 42" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
     <p class="empty-text">${escHtml(text)}</p>
     <p class="empty-sub">${escHtml(sub)}</p>
   </div>`;
@@ -520,7 +520,7 @@ function openDetail(id) {
       <button class="d-act" id="dCopyBtn"><i class="ti ti-copy"></i>정보 복사</button>
       <button class="d-act" id="dPhotoBtn"><i class="ti ti-photo-down"></i>사진 저장</button>
       <button class="d-act accent" id="dEditBtn"><i class="ti ti-edit"></i>수정</button>
-      <button class="d-act" id="dDelBtn" style="color:#A32D2D"><i class="ti ti-trash"></i>삭제</button>
+      <button class="d-act" id="dDelBtn" style="color:#C13515"><i class="ti ti-trash"></i>삭제</button>
     </div>
 
     <table class="info-table">
@@ -624,7 +624,7 @@ function openDetail(id) {
 function copyProfile(c) {
   const ideal = c.ideal || {};
   const L = [];
-  L.push('[스며들틈 프로필]');
+  L.push('[썸메이트 프로필]');
   L.push(`이름: ${c.name}`);
   L.push(`성별: ${c.gender === 'm' ? '남성' : '여성'}`);
   if (c.birth_year) L.push(`나이: ${c.birth_year}년생`);
@@ -672,7 +672,7 @@ function downloadPhoto(c) {
   photos.forEach((p, i) => {
     const a = document.createElement('a');
     a.href = p;
-    a.download = `스며들틈_${c.name}_${i + 1}.jpg`;
+    a.download = `썸메이트_${c.name}_${i + 1}.jpg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -891,7 +891,7 @@ function downloadTemplate() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = '스며들틈_등록양식.csv';
+  a.download = '썸메이트_등록양식.csv';
   a.click();
   URL.revokeObjectURL(a.href);
   toast('양식 파일이 저장되었어요');
@@ -1176,7 +1176,7 @@ function exportData() {
   const a = document.createElement('a');
   const d = new Date();
   a.href = URL.createObjectURL(blob);
-  a.download = `스며들틈_백업_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
+  a.download = `썸메이트_백업_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   toast('백업 파일이 저장되었어요');
