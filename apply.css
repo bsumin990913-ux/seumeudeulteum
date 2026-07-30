@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════
-   스며들틈 — 공개 신청 폼
-   디자인: 뱅크샐러드 (2026-07-12 검증 토큰)
-     accent #13bd7e / action #06a96c / canvas #fff / fg #111
-     secondary #555c68 / muted #9fa4b0 / line #f0f2f5
+   썸메이트 — 공개 신청 폼
+   디자인: 뱅크샐러드 구조 + 썸메이트 핑크 팔레트
+     accent #F5569B (로즈) / action #FD1569 (펀치) / canvas #fff / fg #111
+     뱅크샐러드 뉴트럴 그대로: secondary #555c68 / muted #9fa4b0 / line #f0f2f5
      radius chip 6 / action 16 / card 24 · 그림자 없음
    폰트: Pretendard
 ═══════════════════════════════════════ */
@@ -10,8 +10,8 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
 
 :root {
-  --accent: #13bd7e;
-  --action: #06a96c;
+  --accent: #F5569B;
+  --action: #FD1569;
   --canvas: #ffffff;
   --fg: #111111;
   --secondary: #555c68;
@@ -19,7 +19,7 @@
   --muted: #9fa4b0;
   --line: #f0f2f5;
   --field: #dfe3e8;      /* 입력칸 테두리 — line(#f0f2f5)만으로는 경계가 안 보여서 한 단계 진하게 */
-  --tint: rgba(19, 189, 126, .15);
+  --tint: rgba(245, 86, 155, .12);
   --error: #d84343;
   --r-chip: 6px;
   --r-action: 16px;

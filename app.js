@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   스며들틈 — 관리자 도구 v3 (Supabase 클라우드 + 스토리지)
+   썸메이트 — 관리자 도구 v3 (Supabase 클라우드 + 스토리지)
 ═══════════════════════════════════════ */
 
 const SUPABASE_URL = 'https://ypvlrgwtelbocuefhwxy.supabase.co';
@@ -414,7 +414,7 @@ function filteredCandidates() {
 
 function emptyHtml(text, sub) {
   return `<div class="empty">
-    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#E8F0CB"/><circle cx="24" cy="30" r="3" fill="#415111"/><circle cx="40" cy="30" r="3" fill="#415111"/><path d="M26 42Q32 38 38 42" stroke="#415111" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
+    <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFC2D2"/><circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/><path d="M26 42Q32 38 38 42" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
     <p class="empty-text">${escHtml(text)}</p>
     <p class="empty-sub">${escHtml(sub)}</p>
   </div>`;
@@ -553,7 +553,7 @@ function renderRecoSection(c) {
         <div style="font-size:14px;font-weight:700">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
         <div class="reco-tags">${x.reasons.map(r => `<span class="reco-tag ${r.ok ? '' : 'bad'}">${escHtml(r.label)}</span>`).join('')}</div>
       </div>
-      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" style="background:var(--peach-soft);color:var(--peach-mid);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
+      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" style="background:var(--pink-soft);color:var(--pink-strong);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
     </div>`).join('');
 }
 
@@ -1021,7 +1021,7 @@ function openDetail(id) {
 function copyProfile(c) {
   const ideal = c.ideal || {};
   const L = [];
-  L.push('[스며들틈 프로필]');
+  L.push('[썸메이트 프로필]');
   L.push(`이름: ${c.name}`);
   L.push(`성별: ${c.gender === 'm' ? '남성' : '여성'}`);
   if (c.birth_year) L.push(`나이: ${c.birth_year}년생`);
@@ -1069,7 +1069,7 @@ function downloadPhoto(c) {
   photos.forEach((p, i) => {
     const a = document.createElement('a');
     a.href = p;
-    a.download = `스며들틈_${c.name}_${i + 1}.jpg`;
+    a.download = `썸메이트_${c.name}_${i + 1}.jpg`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1291,7 +1291,7 @@ function runParse() {
   if (!r.fields.name) missing.push('이름');
   missing.push(!formGender ? '성별' : null);
   const missTxt = missing.filter(Boolean).length
-    ? `<span style="color:var(--peach-mid);font-weight:600"> · ${missing.filter(Boolean).join(', ')} 직접 입력 필요</span>` : '';
+    ? `<span style="color:var(--powder-dark);font-weight:600"> · ${missing.filter(Boolean).join(', ')} 직접 입력 필요</span>` : '';
   $('parseSummary').innerHTML = `
     <div class="parse-head" style="margin-bottom:14px">
       <span class="title"><i class="ti ti-wand"></i> 자동 인식 결과</span>
@@ -1311,7 +1311,7 @@ function downloadTemplate() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = '스며들틈_등록양식.csv';
+  a.download = '썸메이트_등록양식.csv';
   a.click();
   URL.revokeObjectURL(a.href);
   toast('양식 파일이 저장되었어요');
@@ -1359,7 +1359,7 @@ function handleExcelFile(file) {
         <div class="parse-head">
           <span class="title">읽기 완료</span>
           <span class="count-pill">${parsed.length}명</span>
-          ${skipped.length ? `<span style="font-size:12px;color:var(--peach-mid)">이름/성별 누락 ${skipped.length}행 제외</span>` : ''}
+          ${skipped.length ? `<span style="font-size:12px;color:var(--powder-dark)">이름/성별 누락 ${skipped.length}행 제외</span>` : ''}
         </div>
         <table class="parse-table">
           ${parsed.slice(0, 8).map(p => `<tr><td>${escHtml(p.name)} (${p.gender === 'm' ? '남' : '여'})</td><td>${escHtml([p.birth_year ? p.birth_year + '년생' : '', p.job, p.region].filter(Boolean).join(' · '))}</td></tr>`).join('')}
@@ -1541,7 +1541,7 @@ function renderPickLists() {
       // 반대편에서 고른 사람과 거절 이력이 있으면 표시
       const rej = otherPick ? rejectionsBetween(c.id, otherPick).length : 0;
       return `<div class="pick-item ${sel ? 'sel' : ''} ${gender === 'f' ? 'f-side' : ''}" data-pid="${c.id}">
-        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:11px;color:var(--orange)"></i>' : ''}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
+        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:11px;color:var(--pink-strong)"></i>' : ''}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
         <span class="sub">${escHtml([ageLabel(c), c.job].filter(Boolean).join(' · '))}${busy ? ' · 매칭 진행중' : ''}</span>
       </div>`;
     }).join('');
@@ -1917,7 +1917,7 @@ function exportData() {
   const a = document.createElement('a');
   const d = new Date();
   a.href = URL.createObjectURL(blob);
-  a.download = `스며들틈_백업_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
+  a.download = `썸메이트_백업_${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
   toast('백업 파일이 저장되었어요');

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════
-   스며들틈 — 공개 신청 폼
+   썸메이트 — 공개 신청 폼
    비로그인 방문자가 쓰는 화면입니다. 관리자 기능은 전혀 없습니다.
    DB에는 '대기(pending)' 상태로만 저장되고, 읽기 권한이 없어
    다른 사람의 신청서는 조회할 수 없습니다. (upgrade_v5.sql 참고)
@@ -11,7 +11,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // ── 운영자가 채워 넣을 값 ──────────────────────────
 // 개인정보처리방침(privacy.html)의 문의처와 반드시 같게 맞춰주세요.
 const CONTACT = {
-  name: '스며들틈/썸메이트',
+  name: '썸메이트',
   email: 'dalwoo997@gmail.com',
   phone: ''           // 개인 번호는 공개하지 않음. 문의는 이메일로만 받습니다.
 };
