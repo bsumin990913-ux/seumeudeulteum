@@ -17,7 +17,11 @@ const CONTACT = {
   threads: '@somemate_love',
   threadsUrl: 'https://www.threads.com/@somemate_love'
 };
-const CONSENT_VERSION = '2026-07-29';
+const CONSENT_VERSION = '2026-08-05';
+
+// 후원 안내 — 완료 화면 맨 아래에 조용한 한 줄로만 나옵니다.
+// support.html 안의 SUPPORT 설정을 채우기 전에는 false로 두세요. (링크만 있고 받을 곳이 없으면 곤란하니까요)
+const SHOW_SUPPORT_LINK = false;
 // ────────────────────────────────────────────────
 
 const MAX_PHOTOS = 3;
@@ -31,7 +35,7 @@ const openedAt = Date.now();
 
 const TEXT_IDS = ['fName','fBirth','fHeight','fBody','fRegion','fJob','fWork','fEdu','fMbti','fReligion',
                   'fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote',
-                  'fPhone','fKakao','fReferral'];
+                  'fThreads','fKakao','fReferral'];
 
 const S = {
   step: 0,
@@ -55,13 +59,17 @@ function toast(msg) {
 const val = id => ($(id).value || '').trim();
 const digits = s => String(s || '').replace(/[^0-9]/g, '');
 
-// 숫자만 남긴 뒤 010-1234-5678 꼴로 바꿔줌 (하이픈 포함 최대 13자)
-function formatPhone(v) {
-  const d = digits(v).slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
-  if (d.length <= 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
-  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+// 스레드 아이디를 '@아이디' 한 가지 모양으로 맞춰줌.
+// 'somemate_love', '@somemate_love', 'https://www.threads.com/@somemate_love'
+// 어떻게 적어 넣어도 모두 '@somemate_love'가 됩니다. 못 알아보면 빈 문자열.
+function normThreads(v) {
+  let s = String(v || '').trim();
+  if (!s) return '';
+  const url = s.match(/threads\.(?:com|net)\/@?([A-Za-z0-9._]+)/i);
+  if (url) s = url[1];
+  s = s.replace(/^@+/, '').replace(/[^A-Za-z0-9._]/g, '');
+  if (!s || s.length > 30) return '';
+  return '@' + s;
 }
 
 // ═══════════════════════════════════════
@@ -116,9 +124,8 @@ function validateStep() {
     }
   }
   if (S.step === 4) {
-    const d = digits(val('fPhone'));
-    bad('fPhone', 'errPhone', !(d.length >= 10 && d.length <= 11));
-    if (!ok) $('fPhone').scrollIntoView({ block: 'center', behavior: 'smooth' });
+    bad('fThreads', 'errThreads', !normThreads(val('fThreads')));
+    if (!ok) $('fThreads').scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   return ok;
 }
@@ -232,7 +239,8 @@ function renderSummary() {
     ['거주지', val('fRegion')],
     ['직업', val('fJob')],
     ['사진', S.photos.length ? `${S.photos.length}장` : '없음'],
-    ['연락처', val('fPhone')]
+    ['스레드', normThreads(val('fThreads'))],
+    ['카카오톡', val('fKakao')]
   ].filter(r => r[1]);
   $('summary').innerHTML = rows.map(([k, v]) =>
     `<div class="sum-row"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
@@ -273,7 +281,7 @@ function buildPayload() {
       note: val('iNote')
     },
     photos: S.photos.slice(),
-    phone: val('fPhone'),
+    contact_threads: normThreads(val('fThreads')),
     contact_kakao: val('fKakao'),
     referral: val('fReferral'),
     consent: Object.assign({}, S.consent, { version: CONSENT_VERSION, agreed_at: new Date().toISOString() }),
@@ -366,20 +374,15 @@ function init() {
     });
   });
 
-  // 연락처: 입력하는 대로 하이픈을 넣어줌 (숫자만 남기고 다시 조립)
-  const phone = $('fPhone');
-  const reformatPhone = () => {
-    const before = phone.value;
-    const after = formatPhone(before);
-    if (before === after) return;
-    let atEnd = true;
-    try { atEnd = phone.selectionStart === before.length; } catch (e) { }
-    phone.value = after;
-    if (atEnd) { try { phone.setSelectionRange(after.length, after.length); } catch (e) { } }
+  // 스레드 아이디: 칸에서 빠져나올 때 '@아이디' 모양으로 정리해 줌.
+  // 타이핑 도중에 건드리면 커서가 튀기 때문에 blur/change에서만 손댑니다.
+  const threads = $('fThreads');
+  const tidyThreads = () => {
+    const fixed = normThreads(threads.value);
+    if (fixed && fixed !== threads.value.trim()) threads.value = fixed;
   };
-  // input 외에 change/blur도 걸어둠 — 브라우저 자동완성은 input이 안 뜨는 경우가 있음
-  ['input', 'change', 'blur'].forEach(ev => phone.addEventListener(ev, reformatPhone));
-  phone.addEventListener('paste', () => setTimeout(reformatPhone, 0));
+  ['change', 'blur'].forEach(ev => threads.addEventListener(ev, tidyThreads));
+  threads.addEventListener('paste', () => setTimeout(tidyThreads, 0));
 
   $('nextBtn').addEventListener('click', () => {
     if (S.step === 5) { submit(); return; }
@@ -397,8 +400,10 @@ function init() {
     ? `언제든지 수정·삭제해 드립니다. 아래로 편하게 연락 주세요.<br>${bits.join('<br>')}`
     : `언제든지 수정·삭제해 드립니다. 문의처는 <a href="privacy.html#contact" target="_blank" rel="noopener">개인정보처리방침</a>에서 확인하실 수 있어요.`;
 
+  $('supportLine').classList.toggle('hidden', !SHOW_SUPPORT_LINK);
+
   loadDraft();
-  reformatPhone();   // 임시저장에서 불러온 번호도 하이픈 형식으로 맞춰줌
+  tidyThreads();   // 임시저장에서 불러온 아이디도 같은 모양으로 맞춰줌
   syncConsent();
   goStep(0);
 }

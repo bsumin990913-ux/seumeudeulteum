@@ -197,6 +197,114 @@ input.bad, textarea.bad { border-color:var(--error); }
 .threads-btn:active { opacity:.85; }
 .threads-note { font-size:14px; font-weight:500; color:var(--muted); margin-top:10px; text-align:center; }
 
+/* ── 완료 화면: 후원 안내 한 줄 ──
+   버튼이 아니라 조용한 텍스트입니다. 스레드 DM 안내가 늘 먼저 보여야 하니까요. */
+.support-line {
+  text-align:center; margin:20px 0 0;
+  font-size:14.5px; font-weight:500; color:var(--muted); line-height:1.6;
+}
+.support-line a { font-weight:700; text-decoration:none; white-space:nowrap; }
+.support-line a:hover { text-decoration:underline; }
+
+/* ── 후원 페이지 (support.html) ── */
+.sup-hero { text-align:center; padding:32px 0 8px; }
+.sup-cup {
+  width:72px; height:72px; border-radius:999px; background:var(--tint);
+  font-size:34px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;
+}
+.sup-card { border:2px solid var(--accent); background:#fff7fa; }
+.sup-btn {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  width:100%; margin-top:12px; padding:16px 20px; border-radius:var(--r-action);
+  font-size:17px; font-weight:700; letter-spacing:-.7px; text-decoration:none;
+  transition:opacity .15s;
+}
+.sup-btn:active { opacity:.85; }
+.sup-btn.kakao { background:#FEE500; color:#191600; }
+.sup-btn.toss { background:#0064FF; color:#fff; }
+.sup-btn.account { background:var(--canvas); color:var(--fg); border:1px solid var(--field); }
+.sup-acc-line { font-size:17px; font-weight:700; word-break:break-all; }
+.sup-acc-copy { font-size:14px; font-weight:500; color:var(--muted); }
+.sup-more { display:inline-block; margin-top:16px; font-size:15.5px; font-weight:700; text-decoration:none; }
+.sup-more:hover { text-decoration:underline; }
+
+/* ── 후기 페이지 (reviews.html) ── */
+/* 캡처를 두 열로 펼쳐야 해서 신청 폼(520px)보다 넓게 씁니다 */
+#wrap.wide, .topbar.wide { max-width:760px; }
+
+.rv-hero { text-align:center; padding:28px 0 4px; }
+.rv-hero h1 { margin-bottom:10px; }
+
+/* 숫자 스트립 — '세고 있다'는 것 자체가 관리의 증거라서 맨 위에 둡니다 */
+.rv-stats {
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
+  background:var(--tint); border-radius:var(--r-card); padding:20px 12px;
+}
+.rv-stat { text-align:center; min-width:0; }
+.rv-stat b { display:block; font-size:28px; font-weight:700; color:var(--accent); line-height:1.2; letter-spacing:-.7px; }
+.rv-stat span { font-size:14.5px; font-weight:500; color:var(--secondary); }
+.rv-stats-note { text-align:center; font-size:14px; font-weight:500; color:var(--muted); margin:8px 0 0; }
+
+/* 동의 안내 — '내 대화도 올라가나?' 걱정을 먼저 덜어주는 자리 */
+.rv-consent {
+  display:flex; gap:12px; align-items:flex-start;
+  border:1px solid var(--line); border-radius:var(--r-card);
+  padding:18px 20px; margin-top:16px;
+}
+.rv-consent-ic { flex-shrink:0; font-size:20px; line-height:1.4; }
+.rv-consent p { font-size:15.5px; font-weight:500; color:var(--secondary); line-height:1.5; }
+
+.rv-filter { margin:24px 0 16px; }
+
+/* 벽돌형 배치 — 캡처마다 세로 길이가 달라서, 격자 대신 열로 흘려보냅니다 */
+.rv-grid { columns:1; column-gap:16px; }
+@media (min-width:600px) { .rv-grid { columns:2; } }
+
+.rv-card {
+  break-inside:avoid; margin:0 0 16px;
+  border:1px solid var(--line); border-radius:var(--r-card);
+  padding:16px; background:var(--canvas);
+}
+.rv-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.rv-who { font-size:14.5px; font-weight:500; color:var(--muted); }
+.rv-stage {
+  margin-left:auto; flex-shrink:0;
+  font-size:13px; font-weight:700; letter-spacing:-.7px;
+  border-radius:999px; padding:3px 10px;
+  background:var(--line); color:var(--secondary);
+}
+.rv-stage.success { background:var(--accent); color:#fff; }
+.rv-stage.meet { background:var(--tint); color:var(--accent); }
+
+.rv-shot {
+  display:block; width:100%; height:auto;
+  border-radius:var(--r-action); background:var(--line);
+  cursor:zoom-in;
+}
+
+/* 주선자 코멘트 — 캡처가 '증거'라면 이 줄이 '우리가 뭘 했는지'입니다 */
+.rv-note {
+  display:flex; gap:8px; align-items:flex-start; margin-top:14px;
+  font-size:15.5px; font-weight:500; color:var(--fg); line-height:1.55;
+}
+.rv-note-ic { flex-shrink:0; font-size:14px; line-height:1.7; }
+.rv-date { font-size:14px; font-weight:500; color:var(--muted); margin-top:10px; text-align:right; }
+
+.rv-empty { text-align:center; font-size:15.5px; font-weight:500; color:var(--muted); padding:40px 0; }
+
+/* 캡처는 글씨가 작아서 눌러 키울 수 있어야 합니다 */
+.rv-lb {
+  position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:80;
+  display:none; align-items:center; justify-content:center; padding:56px 16px;
+}
+.rv-lb.on { display:flex; }
+.rv-lb img { max-width:100%; max-height:100%; border-radius:8px; object-fit:contain; }
+.rv-lb-close {
+  position:absolute; top:14px; right:14px; width:40px; height:40px; border-radius:999px;
+  background:rgba(255,255,255,.16); color:#fff; font-size:18px;
+  display:flex; align-items:center; justify-content:center;
+}
+
 /* ── 개인정보처리방침 페이지 ── */
 .doc { max-width:720px; margin:0 auto; padding:32px 20px 80px; }
 .doc h1 { font-size:26px; margin-bottom:8px; }

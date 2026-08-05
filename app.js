@@ -27,23 +27,28 @@ function dbErr(e) {
 //  데이터 저장소 (Supabase + 메모리 캐시)
 // ═══════════════════════════════════════
 const DB = {
-  data: { candidates: [], matches: [], rejections: [], applications: [] },
+  data: { candidates: [], matches: [], rejections: [], applications: [], reviews: [], stats: null },
 
   async init() {
-    const [c, m, r, a] = await Promise.all([
+    const [c, m, r, a, rv, st] = await Promise.all([
       sb.from('candidates').select('*').order('id', { ascending: false }),
       sb.from('matches').select('*').order('id', { ascending: false }),
       sb.from('rejections').select('*').order('id', { ascending: false }),
-      sb.from('applications').select('*').order('id', { ascending: false })
+      sb.from('applications').select('*').order('id', { ascending: false }),
+      sb.from('reviews').select('*').order('sort_order', { ascending: false }).order('id', { ascending: false }),
+      sb.from('site_stats').select('*').eq('id', 1).maybeSingle()
     ]);
     if (c.error || m.error) throw (c.error || m.error);
     this.data.candidates = c.data || [];
     this.data.matches = m.data || [];
-    // 아래 두 테이블은 업그레이드 SQL을 아직 안 돌렸을 수 있으므로, 없으면 빈 목록으로 진행
+    // 아래 표들은 업그레이드 SQL을 아직 안 돌렸을 수 있으므로, 없으면 빈 목록으로 진행
     if (r.error) { console.warn('[DB] rejections 테이블 없음 — upgrade_v4.sql을 실행해 주세요', r.error); this.data.rejections = []; }
     else this.data.rejections = r.data || [];
     if (a.error) { console.warn('[DB] applications 테이블 없음 — upgrade_v5.sql을 실행해 주세요', a.error); this.data.applications = []; }
     else this.data.applications = a.data || [];
+    if (rv.error) { console.warn('[DB] reviews 테이블 없음 — upgrade_v7.sql을 실행해 주세요', rv.error); this.data.reviews = []; }
+    else this.data.reviews = rv.data || [];
+    this.data.stats = st.error ? null : (st.data || null);
   },
 
   async addCandidate(cand) {
@@ -168,6 +173,51 @@ const DB = {
     return true;
   },
 
+  // ── 후기 ──
+  async addReview(row) {
+    const { data, error } = await sb.from('reviews').insert(row).select().single();
+    if (error) {
+      console.error('[DB] 후기 저장 실패', error);
+      toast(/relation|does not exist/i.test(error.message || '')
+        ? '후기 테이블이 아직 없어요. upgrade_v7.sql을 실행해 주세요'
+        : '후기를 저장하지 못했어요');
+      return null;
+    }
+    this.data.reviews.unshift(data);
+    return data;
+  },
+  async updateReview(id, patch) {
+    patch.updated_at = nowStr();
+    const { data, error } = await sb.from('reviews').update(patch).eq('id', id).select().single();
+    if (error) { dbErr(error); return null; }
+    const i = this.data.reviews.findIndex(x => x.id === id);
+    if (i > -1) this.data.reviews[i] = data;
+    return data;
+  },
+  async deleteReview(id) {
+    const row = this.data.reviews.find(x => x.id === id);
+    const { error } = await sb.from('reviews').delete().eq('id', id);
+    if (error) { dbErr(error); return false; }
+    // 캡처 파일도 함께 정리 (실패해도 무시)
+    const paths = storagePathsOf(row && row.image_url ? [row.image_url] : [], 'reviews');
+    if (paths.length) { try { sb.storage.from('reviews').remove(paths); } catch (e) { } }
+    this.data.reviews = this.data.reviews.filter(x => x.id !== id);
+    return true;
+  },
+  async saveStats(patch) {
+    const row = Object.assign({ id: 1, updated_at: nowStr() }, patch);
+    const { data, error } = await sb.from('site_stats').upsert(row).select().single();
+    if (error) {
+      console.error('[DB] 숫자 저장 실패', error);
+      toast(/relation|does not exist/i.test(error.message || '')
+        ? '숫자 표가 아직 없어요. upgrade_v7.sql을 실행해 주세요'
+        : '숫자를 저장하지 못했어요');
+      return null;
+    }
+    this.data.stats = data;
+    return data;
+  }
+
 };
 
 // ── 별표 고정 (기기별 개인 설정) ──
@@ -223,6 +273,48 @@ function candName(id) {
   return c ? c.name : '(삭제됨)';
 }
 function candOf(id) { return DB.data.candidates.find(x => x.id === id); }
+
+// ── 상세 화면 발자국 (뒤로가기) ──
+// 후보 → 거절 기록 → 다른 후보 → 매칭 … 이렇게 타고 들어가도
+// 바로 앞에서 보던 사람에게 한 번에 돌아올 수 있게 지나온 길을 남겨둡니다.
+const Trail = {
+  stack: [],                                  // [{ t:'cand'|'match', id }]
+  clear() { this.stack = []; },
+  push(t, id) { if (id != null) this.stack.push({ t, id }); },
+
+  labelOf(e) {
+    if (e.t !== 'match') return candName(e.id);
+    const m = DB.data.matches.find(x => x.id === e.id);
+    return m ? `${candName(m.male_id)} ♥ ${candName(m.female_id)}` : '(삭제된 매칭)';
+  },
+
+  // 발자국 줄. 화살표를 누르면 한 칸 뒤로, 이름을 누르면 그 지점으로 한 번에 돌아갑니다.
+  html() {
+    if (!this.stack.length) return '';
+    const path = this.stack
+      .map((e, i) => `<button type="button" class="trail-item" data-trail="${i}">${escHtml(this.labelOf(e))}</button>`)
+      .join('<i class="ti ti-chevron-right trail-sep"></i>');
+    return `<div class="trail">
+      <button type="button" class="trail-back" data-trail="${this.stack.length - 1}" title="이전 화면으로"><i class="ti ti-arrow-left"></i></button>
+      <div class="trail-path">${path}<i class="ti ti-chevron-right trail-sep"></i><span class="trail-now">지금 보는 중</span></div>
+    </div>`;
+  },
+
+  bind(rootId) {
+    $(rootId).querySelectorAll('[data-trail]').forEach(el => {
+      el.addEventListener('click', () => {
+        const i = parseInt(el.dataset.trail, 10);
+        const target = this.stack[i];
+        if (!target) return;
+        this.stack = this.stack.slice(0, i);   // 돌아간 지점보다 뒤의 발자국은 지움
+        closeModal('detailModal');
+        closeModal('matchModal');
+        if (target.t === 'match') openMatchDetail(target.id, true);
+        else openDetail(target.id, true);
+      });
+    });
+  }
+};
 
 // ── 거절 기록 ──
 const REJECT_STAGE = { profile: '프로필 보고', photo: '사진 교환 후', meet: '만나기 전', after: '만난 후' };
@@ -423,7 +515,7 @@ function filteredCandidates() {
     if (S.statusFilter === 'promo' && !c.promo_url) return false;
     if (S.statusFilter === 'nopromo' && c.promo_url) return false;
     if (q) {
-      const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo, c.phone].join(' ').toLowerCase();
+      const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo, c.contact_threads, c.phone].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -820,7 +912,7 @@ const Rej = {
     this.memo = memoNow || '';
     this.left = candOf(m.male_id);
     this.right = candOf(m.female_id);
-    this.after = () => { openMatchDetail(m.id); renderAll(); };
+    this.after = () => { openMatchDetail(m.id, true); renderAll(); };
     this._open('매칭 종료', true);
   },
 
@@ -830,7 +922,7 @@ const Rej = {
     this.memo = '';
     this.left = c;
     this.right = null;
-    this.after = () => { openDetail(c.id); renderCandidates(); };
+    this.after = () => { openDetail(c.id, true); renderCandidates(); };
     this._open('거절 기록 추가', false);
   },
 
@@ -967,9 +1059,22 @@ function infoRow(icon, label, value) {
   return `<tr><td><i class="ti ti-${icon}"></i>${label}</td><td>${escHtml(value)}</td></tr>`;
 }
 
-function openDetail(id) {
+// 스레드 아이디는 눌러서 바로 그 사람 프로필로 갈 수 있게 링크로 보여줍니다.
+function threadsRow(handle) {
+  if (!handle) return '';
+  const id = String(handle).trim().replace(/^@+/, '');
+  if (!id) return '';
+  const url = 'https://www.threads.com/@' + encodeURIComponent(id);
+  return `<tr><td><i class="ti ti-at"></i>스레드</td>
+    <td><a class="threads-link" href="${escHtml(url)}" target="_blank" rel="noopener">@${escHtml(id)} <i class="ti ti-external-link"></i></a></td></tr>`;
+}
+
+// keepTrail: 같은 화면을 다시 그리거나 발자국을 따라 되돌아올 때는 true.
+//            목록에서 새로 열 때는 넘기지 않으면 되고, 그러면 발자국이 초기화됩니다.
+function openDetail(id, keepTrail) {
   const c = candOf(id);
   if (!c) return;
+  if (!keepTrail) Trail.clear();
   S.detailId = id;
   const st = candStatus(c);
   const pinnedNow = Pin.has(id);
@@ -986,6 +1091,7 @@ function openDetail(id) {
   $('detailBody').innerHTML = `
    <div class="d-main">
     <div class="d-blk-a">
+      ${Trail.html()}
       ${photos.length
         ? Gal.html(photos)
         : `<div class="d-nophoto"><i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>등록된 사진이 없어요</div>`}
@@ -1007,6 +1113,7 @@ function openDetail(id) {
 
     <div class="d-blk-c">
       <table class="info-table">
+        ${threadsRow(c.contact_threads)}
         ${infoRow('phone', '연락처', c.phone)}
         ${infoRow('briefcase', '직업', c.job + (c.work_pattern ? ` (${c.work_pattern})` : ''))}
         ${infoRow('school', '학력', c.education)}
@@ -1083,7 +1190,8 @@ function openDetail(id) {
   `;
 
   Gal.mount(photos);
-  $('dPinBtn').onclick = () => { Pin.toggle(id); openDetail(id); renderCandidates(); };
+  Trail.bind('detailBody');
+  $('dPinBtn').onclick = () => { Pin.toggle(id); openDetail(id, true); renderCandidates(); };
   $('dCopyBtn').onclick = () => copyProfile(c);
   $('dPhotoBtn').onclick = () => downloadPhoto(c);
   $('dEditBtn').onclick = () => { closeModal('detailModal'); startEdit(id); };
@@ -1097,7 +1205,7 @@ function openDetail(id) {
   $('dArchiveBtn').onclick = async () => {
     const r = await DB.updateCandidate(id, { archived: !c.archived });
     if (!r) return;
-    openDetail(id);
+    openDetail(id, true);
     renderCandidates();
   };
   $('dBlacklistBtn').onclick = async () => {
@@ -1105,11 +1213,11 @@ function openDetail(id) {
     const r = await DB.updateCandidate(id, { blacklisted: !c.blacklisted });
     if (!r) return;
     toast(c.blacklisted ? '블랙리스트에서 해제했어요' : '블랙리스트에 등록했어요');
-    openDetail(id);
+    openDetail(id, true);
     renderCandidates();
   };
   const goM = $('dGoMatchBtn'), newM = $('dMatchBtn');
-  if (goM) goM.onclick = () => { closeModal('detailModal'); openMatchDetail(activeM.id); };
+  if (goM) goM.onclick = () => { Trail.push('cand', id); closeModal('detailModal'); openMatchDetail(activeM.id, true); };
   if (newM) newM.onclick = () => { closeModal('detailModal'); openCreateMatch(c); };
 
   // 관리자 메모 저장
@@ -1124,19 +1232,24 @@ function openDetail(id) {
     const r = await DB.updateCandidate(id, { promo_url: url, promo_at: url ? (c.promo_at || nowStr()) : null });
     if (!r) return;
     toast(url ? '홍보완료로 표시했어요' : '홍보 표시를 지웠어요');
-    openDetail(id);
+    openDetail(id, true);
     renderCandidates();
   };
   // 매칭 기록 → 해당 매칭 상세로
   $('detailBody').querySelectorAll('.cand-hist').forEach(el => {
-    el.addEventListener('click', () => { closeModal('detailModal'); openMatchDetail(parseInt(el.dataset.hmid, 10)); });
+    el.addEventListener('click', () => {
+      Trail.push('cand', id);
+      closeModal('detailModal');
+      openMatchDetail(parseInt(el.dataset.hmid, 10), true);
+    });
   });
   // 거절 기록: 카드 클릭 → 상대 프로필 / × → 기록 삭제 / 추가 버튼
   $('dRejAddBtn').onclick = () => { closeModal('detailModal'); Rej.openForCandidate(c); };
   $('detailBody').querySelectorAll('.rej-item').forEach(el => {
     el.addEventListener('click', e => {
       if (e.target.closest('.rej-del')) return;
-      openDetail(parseInt(el.dataset.rother, 10));
+      Trail.push('cand', id);
+      openDetail(parseInt(el.dataset.rother, 10), true);
     });
   });
   $('detailBody').querySelectorAll('.rej-del').forEach(btn => {
@@ -1144,7 +1257,7 @@ function openDetail(id) {
       e.stopPropagation();
       if (!confirm('이 거절 기록을 삭제할까요?')) return;
       if (!(await DB.deleteRejection(parseInt(btn.dataset.rdel, 10)))) return;
-      openDetail(id);
+      openDetail(id, true);
       toast('기록이 삭제되었어요');
     });
   });
@@ -1152,7 +1265,8 @@ function openDetail(id) {
   $('detailBody').querySelectorAll('.reco-item').forEach(el => {
     el.addEventListener('click', e => {
       if (e.target.closest('.reco-link')) return;
-      openDetail(parseInt(el.dataset.rid, 10));
+      Trail.push('cand', id);
+      openDetail(parseInt(el.dataset.rid, 10), true);
     });
   });
   $('detailBody').querySelectorAll('.reco-link').forEach(btn => {
@@ -1228,7 +1342,19 @@ function downloadPhoto(c) {
 // ═══════════════════════════════════════
 //  등록 / 수정 폼
 // ═══════════════════════════════════════
-const FORM_IDS = ['fName','fBirth','fHeight','fBody','fPhone','fRegion','fJob','fWork','fEdu','fReligion','fMbti','fDrink','fSmoke','fCar','fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote'];
+const FORM_IDS = ['fName','fBirth','fHeight','fBody','fThreads','fPhone','fRegion','fJob','fWork','fEdu','fReligion','fMbti','fDrink','fSmoke','fCar','fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote'];
+
+// 스레드 아이디를 '@아이디' 한 가지 모양으로 맞춰줌.
+// 주소를 통째로 붙여넣어도 아이디만 뽑아냅니다. 못 알아보면 빈 문자열.
+function normThreads(v) {
+  let s = String(v ?? '').trim();
+  if (!s) return '';
+  const url = s.match(/threads\.(?:com|net)\/@?([A-Za-z0-9._]+)/i);
+  if (url) s = url[1];
+  s = s.replace(/^@+/, '').replace(/[^A-Za-z0-9._]/g, '');
+  if (!s || s.length > 30) return '';
+  return '@' + s;
+}
 
 // '010-1234-5678' 꼴로 정리 (하이픈 포함 최대 13자)
 function formatPhone(v) {
@@ -1272,6 +1398,7 @@ function fillFormFrom(c) {
   $('fBirth').value = c.birth_year || '';
   $('fHeight').value = c.height || '';
   $('fBody').value = c.body_type || '';
+  $('fThreads').value = c.contact_threads || '';
   $('fPhone').value = formatPhone(c.phone || '');
   $('fRegion').value = c.region || '';
   $('fJob').value = c.job || '';
@@ -1303,6 +1430,7 @@ function collectForm() {
     birth_year: $('fBirth').value.trim(),
     height: $('fHeight').value.trim().replace(/[^0-9]/g, ''),
     body_type: $('fBody').value.trim(),
+    contact_threads: normThreads($('fThreads').value),
     phone: formatPhone($('fPhone').value),
     region: $('fRegion').value.trim(),
     job: $('fJob').value.trim(),
@@ -1371,13 +1499,14 @@ function renderFormPhotos() {
   });
 }
 
-function compressImageBlob(file) {
+// maxPx: 긴 변 기준 최대 크기. 후기 캡처처럼 글씨를 읽어야 하는 그림은 크게 넘깁니다.
+function compressImageBlob(file, maxPx, quality) {
   return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = e => {
       const img = new Image();
       img.onload = () => {
-        const MAX = 900;
+        const MAX = maxPx || 900;
         let { width: w, height: h } = img;
         if (w > MAX || h > MAX) {
           const r = Math.min(MAX / w, MAX / h);
@@ -1386,7 +1515,7 @@ function compressImageBlob(file) {
         const cv = document.createElement('canvas');
         cv.width = w; cv.height = h;
         cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        cv.toBlob(b => resolve(b), 'image/jpeg', 0.82);
+        cv.toBlob(b => resolve(b), 'image/jpeg', quality || 0.82);
       };
       img.onerror = () => resolve(null);
       img.src = e.target.result;
@@ -1451,10 +1580,10 @@ function runParse() {
 // ═══════════════════════════════════════
 //  엑셀 / CSV 대량 등록
 // ═══════════════════════════════════════
-const XL_HEADERS = ['이름','성별(남/여)','출생연도','키','체형','연락처','거주지','직업','근무형태','학력','종교','MBTI','음주','흡연','자차','취미','성격','특징','이상형나이','이상형키','이상형지역','중요순위','선호직업','기피직업','이상형기타'];
+const XL_HEADERS = ['이름','성별(남/여)','출생연도','키','체형','스레드ID','연락처','거주지','직업','근무형태','학력','종교','MBTI','음주','흡연','자차','취미','성격','특징','이상형나이','이상형키','이상형지역','중요순위','선호직업','기피직업','이상형기타'];
 
 function downloadTemplate() {
-  const example = ['봄이','여','1997','160','마른체형','010-1234-5678','대구 북구','간호사','평일 9to6 고정','전문대졸','기독교','ISFP','월 1-2회','비흡연','없음 (면허 있음)','러닝, 필라테스, 독서','낯가리지만 친해지면 엉뚱함','','연하2~연상4 (연상선호)','175cm 이상','대구, 경북','성격 > 직업안정성 > 경제력','소방관, 전문직, 공무원','간호사, 자영업, 프리랜서','다정다감하고 자상한 사람'];
+  const example = ['봄이','여','1997','160','마른체형','@somemate_love','010-1234-5678','대구 북구','간호사','평일 9to6 고정','전문대졸','기독교','ISFP','월 1-2회','비흡연','없음 (면허 있음)','러닝, 필라테스, 독서','낯가리지만 친해지면 엉뚱함','','연하2~연상4 (연상선호)','175cm 이상','대구, 경북','성격 > 직업안정성 > 경제력','소방관, 전문직, 공무원','간호사, 자영업, 프리랜서','다정다감하고 자상한 사람'];
   const csv = '﻿' + XL_HEADERS.join(',') + '\n' + example.map(v => `"${v}"`).join(',') + '\n';
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
@@ -1486,6 +1615,7 @@ function handleExcelFile(file) {
           birth_year: normBirth(get(row, '출생연도')) || get(row, '출생연도'),
           height: get(row, '키').replace(/[^0-9]/g, ''),
           body_type: get(row, '체형'),
+          contact_threads: normThreads(get(row, '스레드ID')),
           phone: formatPhone(get(row, '연락처')),
           region: get(row, '거주지'),
           job: get(row, '직업'), work_pattern: get(row, '근무형태'),
@@ -1590,23 +1720,36 @@ function renderTimeline(m) {
     </div>`).join('')}</div>`;
 }
 
-function openMatchDetail(id) {
+// 매칭 상세 위쪽의 두 사람 카드. 얼굴이나 이름을 누르면 그 사람 프로필이 열립니다.
+function matchPersonHtml(c, cid, side) {
+  const photo = c && c.photos && c.photos[0];
+  const icon = side === 'f' ? 'flower' : 'leaf';
+  const inner = photo ? `<img src="${escHtml(photo)}" alt="">` : `<i class="ti ti-${icon}"></i>`;
+  const meta = c ? escHtml([ageLabel(c), c.job, c.region].filter(Boolean).join(' · ')) : '';
+  return `<button type="button" class="m-person" data-open-cand="${cid}" ${c ? '' : 'disabled'}>
+    <div class="m-avatar ${side === 'f' ? 'f' : ''}">${inner}</div>
+    <div class="m-person-body">
+      <div class="m-name">${escHtml(candName(cid))}</div>
+      <div class="m-meta">${meta}</div>
+      ${c ? '<span class="m-tap-hint"><i class="ti ti-user"></i>프로필 보기</span>' : ''}
+    </div>
+  </button>`;
+}
+
+// keepTrail: 발자국을 이어갈 때 true (openDetail과 같은 규칙)
+function openMatchDetail(id, keepTrail) {
   const m = DB.data.matches.find(x => x.id === id);
   if (!m) return;
+  if (!keepTrail) Trail.clear();
   S.matchDetailId = id;
   const mc = candOf(m.male_id), fc = candOf(m.female_id);
   const steps = ['exchanging', 'some', 'success', 'ended'];
   $('matchBody').innerHTML = `
-    <div class="m-pair" style="margin-bottom:4px">
-      <div class="m-person">
-        <div class="m-avatar">${mc && mc.photos && mc.photos[0] ? `<img src="${mc.photos[0]}">` : '<i class="ti ti-leaf"></i>'}</div>
-        <div style="min-width:0"><div class="m-name">${escHtml(candName(m.male_id))}</div><div class="m-meta">${mc ? escHtml([ageLabel(mc), mc.job].filter(Boolean).join(' · ')) : ''}</div></div>
-      </div>
+    ${Trail.html()}
+    <div class="m-pair big">
+      ${matchPersonHtml(mc, m.male_id, 'm')}
       <i class="ti ti-heart m-heart"></i>
-      <div class="m-person right">
-        <div class="m-avatar f">${fc && fc.photos && fc.photos[0] ? `<img src="${fc.photos[0]}">` : '<i class="ti ti-flower"></i>'}</div>
-        <div style="min-width:0"><div class="m-name">${escHtml(candName(m.female_id))}</div><div class="m-meta">${fc ? escHtml([ageLabel(fc), fc.job].filter(Boolean).join(' · ')) : ''}</div></div>
-      </div>
+      ${matchPersonHtml(fc, m.female_id, 'f')}
     </div>
     <p class="m-date" style="text-align:center;margin-top:6px">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</p>
     ${rejectionsBetween(m.male_id, m.female_id).map(r => `<div class="rej-warn"><i class="ti ti-heart-broken"></i><div><b>${escHtml(candName(r.from_id))}</b>님이 <b>${escHtml(candName(r.to_id))}</b>님을 거절 · ${escHtml(rejectLabel(r))}${r.reason ? `<br>${escHtml(r.reason)}` : ''}</div></div>`).join('')}
@@ -1620,14 +1763,20 @@ function openMatchDetail(id) {
     <div style="height:10px"></div>
     <button class="btn dark" id="matchMemoSaveBtn"><i class="ti ti-check"></i> 메모 저장</button>
     ${renderTimeline(m)}
-    <div style="height:8px"></div>
-    <div class="btn-row">
-      ${mc ? `<button class="btn ghost" id="matchViewM">남자 프로필</button>` : ''}
-      ${fc ? `<button class="btn ghost" id="matchViewF">여자 프로필</button>` : ''}
-    </div>
-    <div style="height:8px"></div>
+    <div style="height:12px"></div>
     <button class="btn danger-soft" id="matchDelBtn"><i class="ti ti-trash"></i> 매칭 삭제</button>
   `;
+  Trail.bind('matchBody');
+  // 두 사람 카드 → 그 사람 프로필 (돌아올 수 있게 발자국을 남김)
+  $('matchBody').querySelectorAll('[data-open-cand]').forEach(el => {
+    el.addEventListener('click', () => {
+      const cid = parseInt(el.dataset.openCand, 10);
+      if (!candOf(cid)) return;
+      Trail.push('match', id);
+      closeModal('matchModal');
+      openDetail(cid, true);
+    });
+  });
   $('matchBody').querySelectorAll('.step').forEach(btn => {
     btn.addEventListener('click', async () => {
       const st = btn.dataset.st;
@@ -1638,7 +1787,7 @@ function openMatchDetail(id) {
       if (st === 'ended') { Rej.openForMatch(m, memoNow); return; }
       const hist = [...(m.history || []), { t: 'status', to: st, at: nowStr() }];
       if (!(await DB.updateMatch(id, { status: st, memo: memoNow, history: hist }))) return;
-      openMatchDetail(id);
+      openMatchDetail(id, true);
       renderAll();
       if (st === 'success') toast('축하해요, 성사되었어요!');
     });
@@ -1648,13 +1797,10 @@ function openMatchDetail(id) {
     const hist = [...(m.history || [])];
     if (memoNow && memoNow !== (m.memo || '')) hist.push({ t: 'memo', text: memoNow, at: nowStr() });
     if (!(await DB.updateMatch(id, { memo: memoNow, history: hist }))) return;
-    openMatchDetail(id);
+    openMatchDetail(id, true);
     renderMatches();
     toast('메모가 저장되었어요');
   };
-  const vm = $('matchViewM'), vf = $('matchViewF');
-  if (vm) vm.onclick = () => { closeModal('matchModal'); openDetail(m.male_id); };
-  if (vf) vf.onclick = () => { closeModal('matchModal'); openDetail(m.female_id); };
   $('matchDelBtn').onclick = async () => {
     if (!confirm('이 매칭 기록을 삭제할까요?')) return;
     if (!(await DB.deleteMatch(id))) return;
@@ -1806,7 +1952,7 @@ function renderApplications() {
         <span class="app-when">${escHtml(whenLabel(a.created_at))}</span>
       </div>
       <div class="app-meta">${escHtml([a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.height ? a.height + 'cm' : '', a.job, a.region].filter(Boolean).join(' · '))}</div>
-      ${a.phone ? `<div class="app-sub">${escHtml(a.phone)}</div>` : ''}
+      ${a.contact_threads || a.phone ? `<div class="app-sub">${escHtml(a.contact_threads || a.phone)}</div>` : ''}
       ${photos.length ? `<div class="app-thumbs">${photos.slice(0, 3).map(p => `<img src="${p}" alt="">`).join('')}</div>` : ''}
     </div>`;
   }).join('');
@@ -1833,6 +1979,7 @@ function openAppDetail(id) {
     <div class="d-headline">${escHtml([a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.height ? a.height + 'cm' : '', a.body_type, a.region].filter(Boolean).join(' · '))}</div>
 
     <table class="info-table">
+      ${threadsRow(a.contact_threads)}
       ${infoRow('phone', '연락처', a.phone)}
       ${infoRow('brand-hipchat', '카카오톡', a.contact_kakao)}
       ${infoRow('clock', '접수', String(a.created_at).slice(0, 16).replace('T', ' '))}
@@ -1967,7 +2114,7 @@ const Purge = {
     $('purgeList').innerHTML = list.map(a => {
       const linked = a.candidate_id ? candOf(a.candidate_id) : null;
       const days = Math.floor((Date.now() - new Date(a.created_at)) / 86400000);
-      const meta = [a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.phone].filter(Boolean).join(' · ');
+      const meta = [a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.contact_threads || a.phone].filter(Boolean).join(' · ');
       return `<div class="purge-item ${this.picked.has(a.id) ? 'on' : ''}" data-pgid="${a.id}">
         <span class="purge-tick"><i class="ti ti-check"></i></span>
         <div class="purge-body">
@@ -2033,7 +2180,8 @@ const Purge = {
 // 신청서 → 후보 등록
 async function approveApplication(a) {
   if (a.status !== 'pending') return;
-  const dupe = DB.data.candidates.find(c => c.name === a.name && c.gender === a.gender && (a.phone ? c.phone === a.phone : true));
+  const dupe = DB.data.candidates.find(c => c.name === a.name && c.gender === a.gender
+    && (a.contact_threads ? c.contact_threads === a.contact_threads : a.phone ? c.phone === a.phone : true));
   if (dupe && !confirm(`'${a.name}'님과 같은 이름의 후보가 이미 있어요.\n그래도 새로 등록할까요?`)) return;
 
   // 아직 저장 안 한 검토 메모도 함께 넘김
@@ -2048,7 +2196,7 @@ async function approveApplication(a) {
     drinking: a.drinking || '', smoking: a.smoking || '', car: a.car || '',
     hobbies: a.hobbies || '', personality: a.personality || '', description: a.description || '',
     ideal: a.ideal || {}, photos: a.photos || [],
-    phone: a.phone || '', source: 'apply',
+    contact_threads: a.contact_threads || '', phone: a.phone || '', source: 'apply',
     admin_memo: memo
   });
   if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-user-check"></i> 승인하고 후보로 등록'; }
@@ -2064,6 +2212,205 @@ async function approveApplication(a) {
   renderAll();
   toast(`${a.name}님이 후보로 등록되었어요`);
 }
+
+// ═══════════════════════════════════════
+//  후기 관리 (공개 후기 페이지 /reviews 에 바로 반영됨)
+// ═══════════════════════════════════════
+const RV_STAGE_LABEL = { success: '성사', meet: '첫 만남 후', progress: '진행 중', etc: '기타' };
+const RV_STAT_SLOTS = 3;
+
+const Rev = {
+  stage: 'success',
+  shot: null,        // 업로드가 끝난 캡처 주소
+  busy: false,
+
+  open() {
+    this.stage = 'success';
+    this.shot = null;
+    $('rvWho').value = '';
+    $('rvDate').value = '';
+    $('rvNote').value = '';
+    $('rvPreview').classList.add('hidden');
+    $('rvPreview').src = '';
+    $('rvDropHint').classList.remove('hidden');
+    document.querySelectorAll('#rvStage .chip').forEach(c => c.classList.toggle('active', c.dataset.rvs === 'success'));
+    this.syncAdd();
+    this.renderStats();
+    this.renderList();
+    openModal('reviewModal');
+  },
+
+  syncAdd() { $('rvAddBtn').disabled = this.busy || !this.shot; },
+
+  // ── 숫자 스트립 ──
+  renderStats() {
+    const s = DB.data.stats || {};
+    $('rvStatLabel').value = s.updated_label || '';
+    const items = Array.isArray(s.items) ? s.items : [];
+    $('rvStatRows').innerHTML = Array.from({ length: RV_STAT_SLOTS }, (_, i) => {
+      const it = items[i] || {};
+      return `<div class="rvm-stat-row">
+        <input class="rvm-stat-num" data-si="${i}" placeholder="128" value="${escHtml(it.num || '')}" inputmode="numeric">
+        <input class="rvm-stat-label" data-sl="${i}" placeholder="누적 신청" value="${escHtml(it.label || '')}">
+      </div>`;
+    }).join('');
+  },
+
+  collectStats() {
+    const items = [];
+    for (let i = 0; i < RV_STAT_SLOTS; i++) {
+      const num = $('rvStatRows').querySelector(`[data-si="${i}"]`).value.trim();
+      const label = $('rvStatRows').querySelector(`[data-sl="${i}"]`).value.trim();
+      if (num && label) items.push({ num, label });
+    }
+    return { updated_label: $('rvStatLabel').value.trim(), items };
+  },
+
+  // 지금 데이터에서 바로 뽑아 채워줌 — 손으로 세다가 틀리는 걸 막으려고.
+  // 셋 다 '누적' 기준입니다. 진행 중인 건수로 넣으면 성사될 때마다 숫자가 줄어서,
+  // 공개 페이지에서는 오히려 일이 줄어드는 것처럼 보여요.
+  fillStatsFromData() {
+    const ms = DB.data.matches;
+    const vals = [
+      { num: String(DB.data.candidates.length), label: '누적 신청' },
+      { num: String(ms.length), label: '누적 소개' },
+      { num: String(ms.filter(m => m.status === 'success').length), label: '커플 성사' }
+    ];
+    vals.forEach((v, i) => {
+      $('rvStatRows').querySelector(`[data-si="${i}"]`).value = v.num;
+      $('rvStatRows').querySelector(`[data-sl="${i}"]`).value = v.label;
+    });
+    const d = new Date();
+    if (!$('rvStatLabel').value.trim()) $('rvStatLabel').value = `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+    toast('지금 수치로 채웠어요. 확인하고 저장해 주세요');
+  },
+
+  async saveStats() {
+    const btn = $('rvStatSaveBtn');
+    btn.disabled = true;
+    const r = await DB.saveStats(this.collectStats());
+    btn.disabled = false;
+    if (r) toast('숫자가 저장되었어요');
+  },
+
+  // ── 캡처 올리기 ──
+  async pickShot(file) {
+    if (!file) return;
+    toast('캡처 올리는 중…');
+    // 캡처는 글씨를 읽어야 해서 후보 사진(900px)보다 크게 남깁니다
+    const blob = await compressImageBlob(file, 1400, 0.88);
+    if (!blob) { toast('이미지를 읽지 못했어요'); return; }
+    const path = `shot/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const { error } = await sb.storage.from('reviews').upload(path, blob, { contentType: 'image/jpeg' });
+    if (error) {
+      console.warn('[Storage] 후기 캡처 업로드 실패', error);
+      toast('캡처를 올리지 못했어요. upgrade_v7.sql을 실행했는지 확인해 주세요');
+      return;
+    }
+    this.shot = sb.storage.from('reviews').getPublicUrl(path).data.publicUrl;
+    $('rvPreview').src = this.shot;
+    $('rvPreview').classList.remove('hidden');
+    $('rvDropHint').classList.add('hidden');
+    this.syncAdd();
+    toast('캡처가 올라갔어요');
+  },
+
+  async add() {
+    if (!this.shot || this.busy) return;
+    const note = $('rvNote').value.trim();
+    if (!note && !confirm('주선자 코멘트 없이 올릴까요?\n\n캡처만 있으면 "감사 인사 모음"으로 보이고,\n코멘트가 있어야 "신경 써주는 곳"으로 읽혀요.')) return;
+    this.busy = true;
+    this.syncAdd();
+    const top = DB.data.reviews.reduce((mx, r) => Math.max(mx, r.sort_order || 0), 0);
+    const row = await DB.addReview({
+      image_url: this.shot,
+      who: $('rvWho').value.trim(),
+      stage: this.stage,
+      note,
+      shown_at: $('rvDate').value.trim(),
+      published: true,
+      sort_order: top + 1
+    });
+    this.busy = false;
+    if (!row) { this.syncAdd(); return; }
+    // 다음 후기를 바로 이어 올릴 수 있게 입력칸을 비움
+    this.shot = null;
+    $('rvPreview').classList.add('hidden');
+    $('rvPreview').src = '';
+    $('rvDropHint').classList.remove('hidden');
+    $('rvWho').value = '';
+    $('rvNote').value = '';
+    this.syncAdd();
+    this.renderList();
+    toast('후기가 올라갔어요');
+  },
+
+  // ── 올린 후기 목록 ──
+  sorted() {
+    return DB.data.reviews.slice().sort((a, b) =>
+      (b.sort_order || 0) - (a.sort_order || 0) || b.id - a.id);
+  },
+
+  renderList() {
+    const list = this.sorted();
+    const shown = list.filter(r => r.published).length;
+    $('rvCount').textContent = list.length ? `공개 ${shown} · 숨김 ${list.length - shown}` : '';
+    const box = $('rvList');
+    if (!list.length) {
+      box.innerHTML = `<p class="hint-text" style="text-align:center;padding:20px 0">아직 올린 후기가 없어요</p>`;
+      return;
+    }
+    box.innerHTML = list.map((r, i) => `<div class="rvm-item ${r.published ? '' : 'off'}" data-rvid="${r.id}">
+      <img class="rvm-thumb" src="${escHtml(r.image_url)}" alt="">
+      <div class="rvm-body">
+        <div class="rvm-head">
+          <span class="rvm-stage ${escHtml(r.stage)}">${escHtml(RV_STAGE_LABEL[r.stage] || r.stage)}</span>
+          ${r.who ? `<span class="rvm-who">${escHtml(r.who)}</span>` : ''}
+          ${r.shown_at ? `<span class="rvm-date">${escHtml(r.shown_at)}</span>` : ''}
+        </div>
+        <div class="rvm-note">${r.note ? escHtml(r.note) : '<i style="color:var(--gray-mid)">코멘트 없음 — 한 줄 적어주세요</i>'}</div>
+        <div class="rvm-tools">
+          <button class="rvm-btn" data-rvmove="up" ${i === 0 ? 'disabled' : ''} title="위로"><i class="ti ti-arrow-up"></i></button>
+          <button class="rvm-btn" data-rvmove="down" ${i === list.length - 1 ? 'disabled' : ''} title="아래로"><i class="ti ti-arrow-down"></i></button>
+          <button class="rvm-btn" data-rvtoggle title="${r.published ? '숨기기' : '공개하기'}"><i class="ti ti-eye${r.published ? '' : '-off'}"></i>${r.published ? '공개중' : '숨김'}</button>
+          <button class="rvm-btn danger" data-rvdel title="삭제"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>`).join('');
+
+    box.querySelectorAll('[data-rvid]').forEach(el => {
+      const id = parseInt(el.dataset.rvid, 10);
+      const r = DB.data.reviews.find(x => x.id === id);
+      el.querySelector('[data-rvtoggle]').onclick = async () => {
+        if (!(await DB.updateReview(id, { published: !r.published }))) return;
+        this.renderList();
+        toast(r.published ? '후기 페이지에서 숨겼어요' : '후기 페이지에 다시 올렸어요');
+      };
+      el.querySelector('[data-rvdel]').onclick = async () => {
+        if (!confirm('이 후기를 삭제할까요?\n캡처 파일도 함께 지워지고, 되돌릴 수 없습니다.')) return;
+        if (!(await DB.deleteReview(id))) return;
+        this.renderList();
+        toast('후기를 삭제했어요');
+      };
+      el.querySelectorAll('[data-rvmove]').forEach(b => {
+        b.onclick = () => this.move(id, b.dataset.rvmove === 'up' ? -1 : 1);
+      });
+      el.querySelector('.rvm-thumb').onclick = () => LB.open([r.image_url], 0);
+    });
+  },
+
+  async move(id, dir) {
+    const list = this.sorted();
+    const i = list.findIndex(r => r.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    // sort_order가 서로 같은 경우에도 확실히 자리가 바뀌도록, 목록 전체에 번호를 새로 매깁니다
+    const order = list.map(r => r.id);
+    [order[i], order[j]] = [order[j], order[i]];
+    await Promise.all(order.map((rid, k) => DB.updateReview(rid, { sort_order: order.length - k })));
+    this.renderList();
+  }
+};
 
 // ═══════════════════════════════════════
 //  설정 — 백업 / 사진 이전 / 계정
@@ -2229,6 +2576,14 @@ function switchView(view) {
 
 function openModal(id) { $(id).classList.add('open'); }
 function closeModal(id) { $(id).classList.remove('open'); }
+
+// 사용자가 직접 닫은 경우(배경 누르기 · Esc · 아래로 끌어내리기).
+// 화면 사이를 오갈 때 쓰는 closeModal과 달리, 여기서는 지나온 발자국도 함께 지웁니다.
+function dismissModal(bg) {
+  if (!bg) return;
+  bg.classList.remove('open');
+  if (bg.id === 'detailModal' || bg.id === 'matchModal') Trail.clear();
+}
 
 function renderAll() {
   renderStats();
@@ -2406,6 +2761,27 @@ async function init() {
   });
   $('openApplyBtn').addEventListener('click', () => window.open(applyUrl, '_blank', 'noopener'));
 
+  // 후기 관리
+  const reviewsUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'reviews';
+  $('reviewsUrl').textContent = reviewsUrl;
+  $('openReviewsBtn').addEventListener('click', () => window.open(reviewsUrl, '_blank', 'noopener'));
+  $('reviewManageBtn').addEventListener('click', () => Rev.open());
+  $('rvDrop').addEventListener('click', () => $('rvFile').click());
+  $('rvFile').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    await Rev.pickShot(f);
+  });
+  document.querySelectorAll('#rvStage .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      Rev.stage = chip.dataset.rvs;
+      document.querySelectorAll('#rvStage .chip').forEach(c => c.classList.toggle('active', c === chip));
+    });
+  });
+  $('rvAddBtn').addEventListener('click', () => Rev.add());
+  $('rvStatFillBtn').addEventListener('click', () => Rev.fillStatsFromData());
+  $('rvStatSaveBtn').addEventListener('click', () => Rev.saveStats());
+
   // 설정
   $('exportBtn').addEventListener('click', exportData);
   $('migratePhotosBtn').addEventListener('click', migratePhotosToStorage);
@@ -2426,7 +2802,7 @@ async function init() {
 
   // 모달 공통
   document.querySelectorAll('.modal-bg').forEach(bg => {
-    bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
+    bg.addEventListener('click', e => { if (e.target === bg) dismissModal(bg); });
   });
   // ── 라이트박스: 마우스 / 휠 / 스와이프 ──
   const lb = $('lightbox');
@@ -2482,7 +2858,7 @@ async function init() {
     if (e.key === 'Escape') {
       // 모달이 겹쳐 있으면 맨 위(가장 나중에 열린) 것부터 닫음
       const opens = document.querySelectorAll('.modal-bg.open');
-      if (opens.length) opens[opens.length - 1].classList.remove('open');
+      if (opens.length) dismissModal(opens[opens.length - 1]);
     }
   });
 
@@ -2511,7 +2887,7 @@ async function init() {
       sheet.classList.remove('dragging');
       const quick = curY > 60 && (Date.now() - startT) < 250; // 빠르게 휙 내리면 바로 닫힘
       if (curY > 120 || quick) {
-        bg.classList.remove('open');
+        dismissModal(bg);
         setTimeout(() => { sheet.style.transform = ''; }, 250);
       } else {
         sheet.style.transform = '';

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>썸메이트 응원하기</title>
+<meta name="description" content="썸메이트는 무료로 운영됩니다. 마음이 생기실 때만, 커피 한 잔으로 응원해 주세요.">
+<meta name="theme-color" content="#ff0050">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="apply.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <span class="brand">썸메이트 응원하기</span>
+  </div>
+</div>
+
+<div id="wrap">
+  <section class="step on">
+
+    <div class="sup-hero">
+      <div class="sup-cup">☕</div>
+      <h1>커피 한 잔,<br>어떠신가요?</h1>
+      <p class="lead" style="margin-bottom:0">썸메이트는 <b>신청비도, 성사 수수료도 받지 않아요.</b><br>마음이 생기실 때만, 딱 그때만 받겠습니다.</p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">저희가 하는 일</p>
+      <p class="card-desc" style="margin-bottom:14px">둘이서, 퇴근하고 나서, 손으로 합니다.</p>
+      <div class="bullet">
+        <span class="bullet-num">1</span>
+        <span class="bullet-body"><b>신청서를 한 장씩 읽어요</b><span>자동으로 매칭하지 않아요. 두 분이 정말 맞을지 사람이 직접 봅니다.</span></span>
+      </div>
+      <div class="bullet">
+        <span class="bullet-num">2</span>
+        <span class="bullet-body"><b>DM으로 하나하나 여쭤봐요</b><span>소개 전에도, 만나고 나서도 양쪽에 따로 연락드립니다.</span></span>
+      </div>
+      <div class="bullet">
+        <span class="bullet-num">3</span>
+        <span class="bullet-body"><b>서버비는 저희가 냅니다</b><span>사진 저장소·도메인·데이터베이스 — 신청이 늘수록 조금씩 늘어나는 비용이에요.</span></span>
+      </div>
+      <a class="sup-more" href="reviews.html">실제로 어떻게 하고 있는지 후기로 보기 →</a>
+    </div>
+
+    <div class="card sup-card">
+      <p class="card-title">응원 보내기</p>
+      <p class="card-desc">금액은 정해두지 않았어요. 커피 한 잔 값이면 충분합니다.</p>
+      <div id="supButtons"></div>
+      <p class="note" style="margin-top:14px; text-align:center">
+        후원하셔도 매칭 순서나 결과는 <b>전혀 달라지지 않아요.</b><br>그건 저희가 지키고 싶은 선이라서요.
+      </p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">아직 신청 안 하셨다면</p>
+      <p class="card-desc" style="margin-bottom:14px">응원보다 신청이 먼저예요. 정말로요.</p>
+      <a class="action" href="apply.html" style="text-decoration:none">소개팅 신청하러 가기</a>
+    </div>
+
+    <p class="note" style="text-align:center; margin:24px 0 0">
+      문의는 스레드 <a href="https://www.threads.com/@somemate_love" target="_blank" rel="noopener">@somemate_love</a> 로 편하게 주세요.
+    </p>
+
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════
+   ▼▼▼ 여기만 채우면 됩니다 ▼▼▼
+
+   1) 카카오페이 송금 링크 만드는 법
+      카카오톡 → 더보기(⋯) → pay → 송금 → 우측 상단 '받기'
+      → '송금 링크 만들기' → 링크 복사 → 아래 url에 붙여넣기
+
+   2) 받기 전에 꼭 확인
+      카카오페이 프로필 이름이 '실명'으로 돼 있으면 링크를 연 사람에게 실명이 보입니다.
+      프로필 이름을 '썸메이트'로 바꿔두세요.
+      (송금 링크로 노출되는 건 프로필 이름·사진뿐입니다. 계좌번호·잔액·거래내역·전화번호는
+       절대 보이지 않고, 링크를 아는 사람이 할 수 있는 일은 '보내기' 하나뿐이에요.)
+
+   3) 계좌번호는 권하지 않습니다
+      예금주 실명이 그대로 드러나고 스미싱 표적이 되기 쉬워요.
+      그래도 열어두시려면 아래 account에 값을 채우면 '복사' 버튼이 생깁니다.
+
+   url이 빈 칸인 항목은 화면에 나오지 않습니다.
+   전부 비어 있으면 안내 문구만 보이니, 링크 없이 페이지가 먼저 열려도 괜찮아요.
+═══════════════════════════════════════ */
+const SUPPORT = {
+  kakaopay: { label: '카카오페이로 보내기', url: '', style: 'kakao' },
+  toss:     { label: '토스로 보내기',       url: '', style: 'toss'  },
+  // 계좌 이체 (쓰지 않으려면 세 값 모두 빈 칸으로 두세요)
+  account:  { bank: '', number: '', holder: '' }
+};
+
+/* ─── 아래는 건드리지 않으셔도 됩니다 ─── */
+const $ = id => document.getElementById(id);
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+// http(s) 링크만 통과시킴 — 설정을 잘못 붙여넣어도 이상한 주소로 나가지 않게
+function safeUrl(u) {
+  return /^https:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '';
+}
+
+function copyText(text, done) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { toast('복사에 실패했어요'); }
+  document.body.removeChild(ta);
+}
+
+function renderSupport() {
+  const box = $('supButtons');
+  const parts = [];
+
+  [SUPPORT.kakaopay, SUPPORT.toss].forEach(s => {
+    const url = safeUrl(s && s.url);
+    if (!url) return;
+    parts.push(`<a class="sup-btn ${escapeHtml(s.style)}" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(s.label)}</a>`);
+  });
+
+  const acc = SUPPORT.account || {};
+  if (acc.bank && acc.number) {
+    const line = `${acc.bank} ${acc.number}${acc.holder ? ' ' + acc.holder : ''}`;
+    parts.push(`<button type="button" class="sup-btn account" id="supCopyAcc">
+      <span class="sup-acc-line">${escapeHtml(line)}</span>
+      <span class="sup-acc-copy">눌러서 복사</span>
+    </button>`);
+  }
+
+  if (!parts.length) {
+    box.innerHTML = `<p class="note" style="text-align:center; padding:8px 0">
+      후원 창구를 준비하고 있어요. 조금만 기다려 주세요!
+    </p>`;
+    return;
+  }
+
+  box.innerHTML = parts.join('');
+  const copyBtn = $('supCopyAcc');
+  if (copyBtn) {
+    const line = `${acc.bank} ${acc.number}${acc.holder ? ' ' + acc.holder : ''}`;
+    copyBtn.addEventListener('click', () => copyText(line, () => toast('계좌번호가 복사되었어요')));
+  }
+}
+
+renderSupport();
+</script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>썸메이트 후기</title>
+<meta name="description" content="썸메이트를 거쳐 간 분들이 남겨주신 이야기입니다.">
+<meta name="theme-color" content="#ff0050">
+<meta name="robots" content="noindex">
+<!-- SNS에 링크를 붙였을 때 뜨는 미리보기 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="썸메이트 후기">
+<meta property="og:description" content="썸메이트를 거쳐 간 분들이 남겨주신 이야기입니다.">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="apply.css">
+</head>
+<body>
+
+<div class="topbar wide">
+  <div class="topbar-row">
+    <span class="brand">썸메이트 후기</span>
+  </div>
+</div>
+
+<div id="wrap" class="wide">
+  <section class="step on">
+
+    <div class="rv-hero">
+      <h1>보내주신 이야기들</h1>
+      <p class="lead" id="rvLead">소개가 끝난 뒤 남겨주신 말들을, 동의를 받고 옮겨 왔어요.</p>
+    </div>
+
+    <!-- 숫자 스트립 -->
+    <div id="rvStats"></div>
+
+    <!-- 동의 안내 -->
+    <div class="rv-consent">
+      <span class="rv-consent-ic">🔒</span>
+      <p>모든 후기는 <b>당사자 동의를 받은 뒤에만</b> 올립니다. 이름·사진·직장처럼 누구인지 알아볼 수 있는 부분은 모두 가렸어요.
+      내려주길 원하시면 언제든 DM 주세요. 바로 지웁니다.</p>
+    </div>
+
+    <!-- 단계 필터 -->
+    <div class="chips rv-filter" id="rvFilter"></div>
+
+    <!-- 후기 카드 -->
+    <div class="rv-grid" id="rvGrid"></div>
+
+    <div class="card" style="margin-top:24px">
+      <p class="card-title">다음 이야기는 당신 차례일지도 몰라요</p>
+      <p class="card-desc" style="margin-bottom:14px">신청서 작성은 3분이면 끝나요.</p>
+      <a class="action" href="apply.html" style="text-decoration:none">소개팅 신청하러 가기</a>
+    </div>
+
+    <p class="note" style="text-align:center; margin:24px 0 0">
+      궁금한 건 스레드 <a href="https://www.threads.com/@somemate_love" target="_blank" rel="noopener">@somemate_love</a> 로 물어봐 주세요.
+    </p>
+
+  </section>
+</div>
+
+<!-- 캡처 크게 보기 -->
+<div class="rv-lb" id="rvLightbox" role="dialog" aria-modal="true" aria-label="후기 크게 보기">
+  <button class="rv-lb-close" id="rvLbClose" aria-label="닫기">✕</button>
+  <img id="rvLbImg" alt="">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script>
+/* ═══════════════════════════════════════
+   후기 페이지 — 비로그인 방문자가 보는 화면입니다.
+
+   후기는 관리자 도구의 [설정 → 후기 관리]에서 올립니다. 이 파일은 손댈 필요가 없어요.
+   방문자에게는 '게시된 후기'와 '숫자 스트립'만 읽기 권한이 있습니다.
+   후보·신청서 같은 다른 자료에는 접근할 수 없습니다. (upgrade_v7.sql 참고)
+═══════════════════════════════════════ */
+
+const SUPABASE_URL = 'https://ypvlrgwtelbocuefhwxy.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwdmxyZ3d0ZWxib2N1ZWZod3h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5ODI1MDcsImV4cCI6MjA5ODU1ODUwN30.GBq97NN8gxLbPPPw9U3sszaTG06G3TRI3O_AOMzkFuM';
+
+const STAGE_LABEL = { success: '성사', meet: '첫 만남 후', progress: '진행 중', etc: '기타' };
+const STAGE_ORDER = ['success', 'meet', 'progress', 'etc'];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, m =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+
+// 캡처는 우리 저장소에 있는 것만 띄웁니다
+function safeImg(u) {
+  const s = String(u || '').trim();
+  if (!s) return '';
+  try {
+    const url = new URL(s, location.href);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+    if (url.origin !== new URL(SUPABASE_URL).origin && url.origin !== location.origin) return '';
+    return url.href;
+  } catch (e) { return ''; }
+}
+
+let sb = null;
+let REVIEWS = [];
+let STATS = { updated: '', items: [] };
+let filter = 'all';
+let loaded = false;
+
+function renderStats() {
+  const box = $('rvStats');
+  const items = (STATS.items || []).filter(s => s && s.num && s.label);
+  if (!items.length || !STATS.updated) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="rv-stats">
+    ${items.map(s => `<div class="rv-stat">
+      <b>${esc(s.num)}</b><span>${esc(s.label)}</span>
+    </div>`).join('')}
+  </div>
+  <p class="rv-stats-note">${esc(STATS.updated)} 기준 · 새 소식이 있을 때마다 갱신합니다</p>`;
+}
+
+function renderFilter() {
+  const box = $('rvFilter');
+  // 실제로 올라온 단계만 칩으로 만듭니다
+  const used = STAGE_ORDER.filter(k => REVIEWS.some(r => r.stage === k));
+  if (used.length < 2) { box.innerHTML = ''; return; }
+  const chip = (v, t) => `<button type="button" class="chip ${filter === v ? 'on' : ''}" data-f="${v}">${esc(t)}</button>`;
+  box.innerHTML = chip('all', `전체 ${REVIEWS.length}`) +
+    used.map(k => chip(k, `${STAGE_LABEL[k]} ${REVIEWS.filter(r => r.stage === k).length}`)).join('');
+  box.querySelectorAll('[data-f]').forEach(b => {
+    b.addEventListener('click', () => { filter = b.dataset.f; renderFilter(); renderGrid(); });
+  });
+}
+
+function renderGrid() {
+  const box = $('rvGrid');
+  if (!loaded) { box.innerHTML = `<p class="rv-empty">후기를 불러오는 중이에요…</p>`; return; }
+
+  const list = REVIEWS.filter(r => filter === 'all' || r.stage === filter);
+  if (!list.length) {
+    box.innerHTML = `<p class="rv-empty">${REVIEWS.length
+      ? '이 단계의 후기는 아직 없어요.'
+      : '첫 후기를 기다리는 중이에요. 곧 채워집니다!'}</p>`;
+    return;
+  }
+
+  box.innerHTML = list.map((r, i) => {
+    const src = safeImg(r.image_url);
+    const stage = STAGE_LABEL[r.stage] ? `<span class="rv-stage ${esc(r.stage)}">${esc(STAGE_LABEL[r.stage])}</span>` : '';
+    return `<figure class="rv-card">
+      <div class="rv-top">
+        ${r.who ? `<span class="rv-who">${esc(r.who)}</span>` : ''}
+        ${stage}
+      </div>
+      ${src ? `<img class="rv-shot" src="${esc(src)}" alt="후기 캡처" loading="lazy" data-shot="${i}">` : ''}
+      ${r.note ? `<figcaption class="rv-note"><span class="rv-note-ic">💬</span>${esc(r.note)}</figcaption>` : ''}
+      ${r.shown_at ? `<div class="rv-date">${esc(r.shown_at)}</div>` : ''}
+    </figure>`;
+  }).join('');
+
+  box.querySelectorAll('[data-shot]').forEach(img => {
+    img.addEventListener('click', () => openShot(img.src));
+  });
+}
+
+async function load() {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+  const [rv, st] = await Promise.all([
+    sb.from('reviews').select('*')
+      .eq('published', true)
+      .order('sort_order', { ascending: false })
+      .order('id', { ascending: false }),
+    sb.from('site_stats').select('*').eq('id', 1).maybeSingle()
+  ]);
+
+  if (rv.error) {
+    console.error('[후기]', rv.error);
+    loaded = true;
+    $('rvGrid').innerHTML = `<p class="rv-empty">후기를 불러오지 못했어요.<br>잠시 후 새로고침 해주세요.</p>`;
+    return;
+  }
+  REVIEWS = rv.data || [];
+  if (!st.error && st.data) {
+    STATS = { updated: st.data.updated_label || '', items: Array.isArray(st.data.items) ? st.data.items : [] };
+  }
+  loaded = true;
+  renderStats();
+  renderFilter();
+  renderGrid();
+}
+
+function openShot(src) {
+  $('rvLbImg').src = src;
+  $('rvLightbox').classList.add('on');
+  document.body.style.overflow = 'hidden';
+}
+function closeShot() {
+  $('rvLightbox').classList.remove('on');
+  $('rvLbImg').src = '';
+  document.body.style.overflow = '';
+}
+
+$('rvLightbox').addEventListener('click', e => { if (e.target !== $('rvLbImg')) closeShot(); });
+$('rvLbClose').addEventListener('click', closeShot);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeShot(); });
+
+renderGrid();   // 먼저 '불러오는 중' 표시
+// supabase 라이브러리(defer)가 다 실려온 뒤에 부릅니다
+document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>
