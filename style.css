@@ -420,6 +420,21 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 }
 
 /* ── 후기 관리 ── */
+/* 숫자 스트립 — 평소엔 요약 한 줄만 보여서 공간을 덜 차지하게 함 */
+.rvm-stats-toggle {
+  display:flex; align-items:center; gap:8px; width:100%;
+  border:1.5px solid var(--line); border-radius:var(--radius-md);
+  padding:12px 14px; margin-bottom:10px; background:var(--white); text-align:left;
+}
+.rvm-stats-toggle > i:first-child { font-size:17px; color:var(--pink-dark); flex-shrink:0; }
+.rvm-stats-toggle span { flex:1; min-width:0; font-size:13.5px; font-weight:600; color:var(--gray); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rvm-caret { flex-shrink:0; font-size:17px; color:var(--gray-mid); transition:transform .15s; }
+.rvm-stats-toggle.open .rvm-caret { transform:rotate(180deg); }
+
+/* '누구인지 · 날짜' 선택 항목 펼치기 */
+.rvm-more-toggle { display:inline-flex; align-items:center; gap:5px; font-size:13.5px; font-weight:600; color:var(--gray); padding:6px 2px; }
+.rvm-more-toggle i { font-size:14px; }
+
 .rvm-box { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:14px 15px; margin-bottom:14px; }
 .rvm-stat-grid { display:flex; flex-direction:column; gap:7px; }
 .rvm-stat-row { display:flex; gap:7px; }
@@ -441,12 +456,16 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 /* 올린 후기 한 줄 */
 .rvm-item { display:flex; gap:11px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:11px; margin-bottom:8px; background:var(--white); }
 .rvm-item.off { background:var(--gray-bg); opacity:.72; }
+.rvm-item.editing { border-color:var(--pink-dark); background:#FFF8FB; }
 .rvm-thumb { width:64px; height:84px; flex-shrink:0; border-radius:10px; object-fit:cover; background:var(--gray-bg); cursor:zoom-in; }
 .rvm-body { flex:1; min-width:0; }
 .rvm-head { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px; }
+/* 네 단계 모두 눈에 띄게 — 옅은 색은 화면 캡처·사진으로 보면 아예 안 보일 수 있어서 진하게 씀 */
 .rvm-stage { font-size:11.5px; font-weight:700; border-radius:20px; padding:2px 8px; background:var(--gray-bg); color:var(--gray); }
 .rvm-stage.success { background:var(--pink-dark); color:var(--white); }
-.rvm-stage.meet { background:var(--pink-soft); color:var(--pink-dark); }
+.rvm-stage.meet { background:var(--ink); color:var(--white); }
+.rvm-stage.progress { background:#6A6A6A; color:var(--white); }
+.rvm-stage.etc { background:var(--white); color:var(--gray); border:1.5px solid var(--gray-mid); }
 .rvm-who { font-size:13px; color:var(--gray); }
 .rvm-date { margin-left:auto; font-size:12.5px; color:var(--gray-mid); }
 .rvm-note { font-size:14px; color:#3F3F3F; line-height:1.5; margin-bottom:8px; }

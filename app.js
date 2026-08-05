@@ -2223,10 +2223,15 @@ const Rev = {
   stage: 'success',
   shot: null,        // 업로드가 끝난 캡처 주소
   busy: false,
+  statsOpen: false,
+  moreOpen: false,
+  editingId: null,   // 지금 수정 중인 후기 id
+  editStage: null,
 
   open() {
     this.stage = 'success';
     this.shot = null;
+    this.editingId = null;
     $('rvWho').value = '';
     $('rvDate').value = '';
     $('rvNote').value = '';
@@ -2234,15 +2239,49 @@ const Rev = {
     $('rvPreview').src = '';
     $('rvDropHint').classList.remove('hidden');
     document.querySelectorAll('#rvStage .chip').forEach(c => c.classList.toggle('active', c.dataset.rvs === 'success'));
+    this.closeMore();
     this.syncAdd();
     this.renderStats();
+    this.closeStats();   // 평소엔 접어둬서, 열 때마다 숫자판이 화면을 다 차지하지 않게 함
     this.renderList();
     openModal('reviewModal');
   },
 
   syncAdd() { $('rvAddBtn').disabled = this.busy || !this.shot; },
 
-  // ── 숫자 스트립 ──
+  // ── '누구인지 · 날짜' 접기/펼치기 (평소엔 안 보이는 선택 항목) ──
+  closeMore() {
+    this.moreOpen = false;
+    $('rvMoreFields').classList.add('hidden');
+    $('rvMoreToggle').innerHTML = '<i class="ti ti-plus"></i> 누구인지 · 날짜 (선택)';
+  },
+  toggleMore() {
+    this.moreOpen = !this.moreOpen;
+    $('rvMoreFields').classList.toggle('hidden', !this.moreOpen);
+    $('rvMoreToggle').innerHTML = this.moreOpen
+      ? '<i class="ti ti-minus"></i> 접기'
+      : '<i class="ti ti-plus"></i> 누구인지 · 날짜 (선택)';
+  },
+
+  // ── 숫자 스트립 (평소엔 요약 한 줄만 보여주고, 눌러야 펼쳐짐) ──
+  closeStats() {
+    this.statsOpen = false;
+    $('rvStatsBox').classList.add('hidden');
+    $('rvStatsToggle').classList.remove('open');
+    this.updateStatsSummary();
+  },
+  toggleStats() {
+    this.statsOpen = !this.statsOpen;
+    $('rvStatsBox').classList.toggle('hidden', !this.statsOpen);
+    $('rvStatsToggle').classList.toggle('open', this.statsOpen);
+  },
+  updateStatsSummary() {
+    const s = DB.data.stats || {};
+    const items = (Array.isArray(s.items) ? s.items : []).filter(x => x && x.num && x.label);
+    $('rvStatsSummary').textContent = (s.updated_label && items.length)
+      ? `${s.updated_label} · ${items.map(i => `${i.label} ${i.num}`).join(' · ')}`
+      : '아직 안 채웠어요 (후기 페이지에서 숨김)';
+  },
   renderStats() {
     const s = DB.data.stats || {};
     $('rvStatLabel').value = s.updated_label || '';
@@ -2290,7 +2329,9 @@ const Rev = {
     btn.disabled = true;
     const r = await DB.saveStats(this.collectStats());
     btn.disabled = false;
-    if (r) toast('숫자가 저장되었어요');
+    if (!r) return;
+    toast('숫자가 저장되었어요');
+    this.closeStats();   // 저장했으면 다시 요약 한 줄로 접어서 화면을 비워줌
   },
 
   // ── 캡처 올리기 ──
@@ -2339,7 +2380,9 @@ const Rev = {
     $('rvPreview').src = '';
     $('rvDropHint').classList.remove('hidden');
     $('rvWho').value = '';
+    $('rvDate').value = '';
     $('rvNote').value = '';
+    this.closeMore();
     this.syncAdd();
     this.renderList();
     toast('후기가 올라갔어요');
@@ -2360,7 +2403,20 @@ const Rev = {
       box.innerHTML = `<p class="hint-text" style="text-align:center;padding:20px 0">아직 올린 후기가 없어요</p>`;
       return;
     }
-    box.innerHTML = list.map((r, i) => `<div class="rvm-item ${r.published ? '' : 'off'}" data-rvid="${r.id}">
+    box.innerHTML = list.map((r, i) => this.editingId === r.id
+      ? this.itemEditHtml(r)
+      : this.itemViewHtml(r, i, list.length)
+    ).join('');
+
+    list.forEach(r => {
+      const el = box.querySelector(`[data-rvid="${r.id}"]`);
+      if (this.editingId === r.id) this.bindEdit(el, r);
+      else this.bindView(el, r);
+    });
+  },
+
+  itemViewHtml(r, i, total) {
+    return `<div class="rvm-item ${r.published ? '' : 'off'}" data-rvid="${r.id}">
       <img class="rvm-thumb" src="${escHtml(r.image_url)}" alt="">
       <div class="rvm-body">
         <div class="rvm-head">
@@ -2370,33 +2426,82 @@ const Rev = {
         </div>
         <div class="rvm-note">${r.note ? escHtml(r.note) : '<i style="color:var(--gray-mid)">코멘트 없음 — 한 줄 적어주세요</i>'}</div>
         <div class="rvm-tools">
+          <button class="rvm-btn" data-rvedit title="수정"><i class="ti ti-edit"></i>수정</button>
           <button class="rvm-btn" data-rvmove="up" ${i === 0 ? 'disabled' : ''} title="위로"><i class="ti ti-arrow-up"></i></button>
-          <button class="rvm-btn" data-rvmove="down" ${i === list.length - 1 ? 'disabled' : ''} title="아래로"><i class="ti ti-arrow-down"></i></button>
+          <button class="rvm-btn" data-rvmove="down" ${i === total - 1 ? 'disabled' : ''} title="아래로"><i class="ti ti-arrow-down"></i></button>
           <button class="rvm-btn" data-rvtoggle title="${r.published ? '숨기기' : '공개하기'}"><i class="ti ti-eye${r.published ? '' : '-off'}"></i>${r.published ? '공개중' : '숨김'}</button>
           <button class="rvm-btn danger" data-rvdel title="삭제"><i class="ti ti-trash"></i></button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  },
 
-    box.querySelectorAll('[data-rvid]').forEach(el => {
-      const id = parseInt(el.dataset.rvid, 10);
-      const r = DB.data.reviews.find(x => x.id === id);
-      el.querySelector('[data-rvtoggle]').onclick = async () => {
-        if (!(await DB.updateReview(id, { published: !r.published }))) return;
-        this.renderList();
-        toast(r.published ? '후기 페이지에서 숨겼어요' : '후기 페이지에 다시 올렸어요');
-      };
-      el.querySelector('[data-rvdel]').onclick = async () => {
-        if (!confirm('이 후기를 삭제할까요?\n캡처 파일도 함께 지워지고, 되돌릴 수 없습니다.')) return;
-        if (!(await DB.deleteReview(id))) return;
-        this.renderList();
-        toast('후기를 삭제했어요');
-      };
-      el.querySelectorAll('[data-rvmove]').forEach(b => {
-        b.onclick = () => this.move(id, b.dataset.rvmove === 'up' ? -1 : 1);
-      });
-      el.querySelector('.rvm-thumb').onclick = () => LB.open([r.image_url], 0);
+  bindView(el, r) {
+    const id = r.id;
+    el.querySelector('[data-rvedit]').onclick = () => { this.editingId = id; this.editStage = r.stage; this.renderList(); };
+    el.querySelector('[data-rvtoggle]').onclick = async () => {
+      if (!(await DB.updateReview(id, { published: !r.published }))) return;
+      this.renderList();
+      toast(r.published ? '후기 페이지에서 숨겼어요' : '후기 페이지에 다시 올렸어요');
+    };
+    el.querySelector('[data-rvdel]').onclick = async () => {
+      if (!confirm('이 후기를 삭제할까요?\n캡처 파일도 함께 지워지고, 되돌릴 수 없습니다.')) return;
+      if (!(await DB.deleteReview(id))) return;
+      this.renderList();
+      toast('후기를 삭제했어요');
+    };
+    el.querySelectorAll('[data-rvmove]').forEach(b => {
+      b.onclick = () => this.move(id, b.dataset.rvmove === 'up' ? -1 : 1);
     });
+    el.querySelector('.rvm-thumb').onclick = () => LB.open([r.image_url], 0);
+  },
+
+  // ── 후기 한 건 수정 (사진은 그대로 두고, 문구만 고칩니다) ──
+  itemEditHtml(r) {
+    const chip = (v, t) => `<button type="button" class="chip ${this.editStage === v ? 'active' : ''}" data-rves="${v}">${t}</button>`;
+    return `<div class="rvm-item editing" data-rvid="${r.id}">
+      <img class="rvm-thumb" src="${escHtml(r.image_url)}" alt="">
+      <div class="rvm-body">
+        <div class="filter-row" data-rvestage style="margin-bottom:8px">
+          ${chip('success', '성사')}${chip('meet', '첫 만남 후')}${chip('progress', '진행 중')}${chip('etc', '기타')}
+        </div>
+        <div class="f-field"><textarea data-rvenote placeholder="주선자 코멘트">${escHtml(r.note || '')}</textarea></div>
+        <div class="form-grid" style="margin:8px 0">
+          <div class="f-field"><label>누구인지</label><input data-rvewho value="${escHtml(r.who || '')}" placeholder="예: 96년생 · 여성 · 대구"></div>
+          <div class="f-field"><label>날짜</label><input data-rvedate value="${escHtml(r.shown_at || '')}" placeholder="예: 2026.07"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn ghost" data-rvecancel>취소</button>
+          <button class="btn primary" data-rvesave><i class="ti ti-check"></i> 저장</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  bindEdit(el, r) {
+    el.querySelectorAll('[data-rvestage] [data-rves]').forEach(chip => {
+      chip.onclick = () => {
+        this.editStage = chip.dataset.rves;
+        el.querySelectorAll('[data-rvestage] [data-rves]').forEach(c => c.classList.toggle('active', c === chip));
+      };
+    });
+    el.querySelector('[data-rvecancel]').onclick = () => { this.editingId = null; this.renderList(); };
+    el.querySelector('[data-rvesave]').onclick = async () => {
+      const patch = {
+        stage: this.editStage,
+        note: el.querySelector('[data-rvenote]').value.trim(),
+        who: el.querySelector('[data-rvewho]').value.trim(),
+        shown_at: el.querySelector('[data-rvedate]').value.trim()
+      };
+      const btn = el.querySelector('[data-rvesave]');
+      btn.disabled = true;
+      const ok = await DB.updateReview(r.id, patch);
+      btn.disabled = false;
+      if (!ok) return;
+      this.editingId = null;
+      this.renderList();
+      toast('후기를 수정했어요');
+    };
   },
 
   async move(id, dir) {
@@ -2779,6 +2884,8 @@ async function init() {
     });
   });
   $('rvAddBtn').addEventListener('click', () => Rev.add());
+  $('rvStatsToggle').addEventListener('click', () => Rev.toggleStats());
+  $('rvMoreToggle').addEventListener('click', () => Rev.toggleMore());
   $('rvStatFillBtn').addEventListener('click', () => Rev.fillStatsFromData());
   $('rvStatSaveBtn').addEventListener('click', () => Rev.saveStats());
 

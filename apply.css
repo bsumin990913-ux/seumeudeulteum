@@ -267,6 +267,7 @@ input.bad, textarea.bad { border-color:var(--error); }
 }
 .rv-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .rv-who { font-size:14.5px; font-weight:500; color:var(--muted); }
+/* 네 단계 모두 또렷하게 구분되도록 — 옅은 색은 화면 캡처로 옮기면 안 보일 수 있음 */
 .rv-stage {
   margin-left:auto; flex-shrink:0;
   font-size:13px; font-weight:700; letter-spacing:-.7px;
@@ -274,7 +275,9 @@ input.bad, textarea.bad { border-color:var(--error); }
   background:var(--line); color:var(--secondary);
 }
 .rv-stage.success { background:var(--accent); color:#fff; }
-.rv-stage.meet { background:var(--tint); color:var(--accent); }
+.rv-stage.meet { background:var(--fg); color:#fff; }
+.rv-stage.progress { background:var(--neutral); color:#fff; }
+.rv-stage.etc { background:var(--canvas); color:var(--secondary); border:1px solid var(--field); }
 
 .rv-shot {
   display:block; width:100%; height:auto;
