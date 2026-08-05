@@ -49,7 +49,7 @@
 
     <div class="card sup-card">
       <p class="card-title">응원 보내기</p>
-      <p class="card-desc">금액은 정해두지 않았어요. 커피 한 잔 값이면 충분합니다.</p>
+      <p class="card-desc">금액은 정해두지 않았어요. 커피 한 잔 값이면 충분하고, 안 보내셔도 하나도 서운하지 않습니다.</p>
       <div id="supButtons"></div>
       <p class="note" style="margin-top:14px; text-align:center">
         후원하셔도 매칭 순서나 결과는 <b>전혀 달라지지 않아요.</b><br>그건 저희가 지키고 싶은 선이라서요.
@@ -73,28 +73,32 @@
 
 <script>
 /* ═══════════════════════════════════════
-   ▼▼▼ 여기만 채우면 됩니다 ▼▼▼
+   ▼▼▼ 후원 창구 설정 — 여기만 고치면 됩니다 ▼▼▼
 
-   1) 카카오페이 송금 링크 만드는 법
-      카카오톡 → 더보기(⋯) → pay → 송금 → 우측 상단 '받기'
-      → '송금 링크 만들기' → 링크 복사 → 아래 url에 붙여넣기
+   url 이 채워진 항목만 버튼으로 나옵니다. 비우면 그 버튼은 사라져요.
+   결제 버튼이 하나도 없으면 dm 버튼이 대신 나오고,
+   결제 버튼이 있으면 dm 은 그 아래 작은 안내 줄로 내려갑니다.
 
-   2) 받기 전에 꼭 확인
-      카카오페이 프로필 이름이 '실명'으로 돼 있으면 링크를 연 사람에게 실명이 보입니다.
-      프로필 이름을 '썸메이트'로 바꿔두세요.
-      (송금 링크로 노출되는 건 프로필 이름·사진뿐입니다. 계좌번호·잔액·거래내역·전화번호는
-       절대 보이지 않고, 링크를 아는 사람이 할 수 있는 일은 '보내기' 하나뿐이에요.)
+   ■ 지금 쓰는 카카오페이 송금 링크에 대해
+     · 링크를 연 사람에게 보이는 것: 카카오톡 프로필 이름과 사진.
+     · 보이지 않는 것: 계좌번호, 잔액, 거래내역, 전화번호.
+     · 링크를 아는 사람이 할 수 있는 일은 '보내기' 하나뿐입니다. 빼갈 수는 없어요.
+     · 이름 노출이 나중에 부담스러워지면, url 을 비우기만 하면 DM 방식으로 되돌아갑니다.
+       (후원 전용 플랫폼(투네이션 등)을 만들어 그 주소를 넣고 label 만 바꿔도 됩니다.)
 
-   3) 계좌번호는 권하지 않습니다
-      예금주 실명이 그대로 드러나고 스미싱 표적이 되기 쉬워요.
-      그래도 열어두시려면 아래 account에 값을 채우면 '복사' 버튼이 생깁니다.
-
-   url이 빈 칸인 항목은 화면에 나오지 않습니다.
-   전부 비어 있으면 안내 문구만 보이니, 링크 없이 페이지가 먼저 열려도 괜찮아요.
+   ■ 계좌번호는 권하지 않습니다
+     예금주 실명이 그대로 드러나고 스미싱 표적이 되기 쉬워요.
+     그래도 열어두시려면 account 에 값을 채우면 '복사' 버튼이 생깁니다.
 ═══════════════════════════════════════ */
 const SUPPORT = {
-  kakaopay: { label: '카카오페이로 보내기', url: '', style: 'kakao' },
+  kakaopay: { label: '카카오페이로 보내기', url: 'https://qr.kakaopay.com/Ej73ZlMaH', style: 'kakao' },
   toss:     { label: '토스로 보내기',       url: '', style: 'toss'  },
+  // 결제 버튼이 모두 비어 있을 때만 이 버튼이 대신 나옵니다
+  dm: {
+    label: '스레드로 응원 보내기',
+    url: 'https://www.threads.com/@somemate_love',
+    hint: 'DM 주시면 받을 방법을 알려드릴게요. 부담 갖지 마시고요!'
+  },
   // 계좌 이체 (쓰지 않으려면 세 값 모두 빈 칸으로 두세요)
   account:  { bank: '', number: '', holder: '' }
 };
@@ -147,12 +151,26 @@ function renderSupport() {
   });
 
   const acc = SUPPORT.account || {};
+  const accLine = `${acc.bank} ${acc.number}${acc.holder ? ' ' + acc.holder : ''}`;
   if (acc.bank && acc.number) {
-    const line = `${acc.bank} ${acc.number}${acc.holder ? ' ' + acc.holder : ''}`;
     parts.push(`<button type="button" class="sup-btn account" id="supCopyAcc">
-      <span class="sup-acc-line">${escapeHtml(line)}</span>
+      <span class="sup-acc-line">${escapeHtml(accLine)}</span>
       <span class="sup-acc-copy">눌러서 복사</span>
     </button>`);
+  }
+
+  // 결제 링크가 하나도 없으면 DM으로 받습니다. 링크가 생기면 DM은 아래 보조 안내로 내려갑니다.
+  const dm = SUPPORT.dm || {};
+  const dmUrl = safeUrl(dm.url);
+  if (dmUrl) {
+    if (!parts.length) {
+      parts.push(`<a class="sup-btn threads" href="${escapeHtml(dmUrl)}" target="_blank" rel="noopener">${escapeHtml(dm.label || '스레드로 응원 보내기')}</a>`);
+      if (dm.hint) parts.push(`<p class="note" style="text-align:center; margin-top:12px">${escapeHtml(dm.hint)}</p>`);
+    } else {
+      parts.push(`<p class="note" style="text-align:center; margin-top:14px">
+        다른 방법으로 보내고 싶으시면 <a href="${escapeHtml(dmUrl)}" target="_blank" rel="noopener">스레드 DM</a> 주세요.
+      </p>`);
+    }
   }
 
   if (!parts.length) {
@@ -164,10 +182,7 @@ function renderSupport() {
 
   box.innerHTML = parts.join('');
   const copyBtn = $('supCopyAcc');
-  if (copyBtn) {
-    const line = `${acc.bank} ${acc.number}${acc.holder ? ' ' + acc.holder : ''}`;
-    copyBtn.addEventListener('click', () => copyText(line, () => toast('계좌번호가 복사되었어요')));
-  }
+  if (copyBtn) copyBtn.addEventListener('click', () => copyText(accLine, () => toast('계좌번호가 복사되었어요')));
 }
 
 renderSupport();

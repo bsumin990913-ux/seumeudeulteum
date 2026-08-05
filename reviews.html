@@ -144,7 +144,8 @@ function renderGrid() {
 
   box.innerHTML = list.map((r, i) => {
     const src = safeImg(r.image_url);
-    const stage = STAGE_LABEL[r.stage] ? `<span class="rv-stage ${esc(r.stage)}">${esc(STAGE_LABEL[r.stage])}</span>` : '';
+    // 클래스에 rv- 를 붙입니다. 그냥 stage 값을 쓰면 'progress'가 신청 폼의 진행바(.progress)와 겹쳐요
+    const stage = STAGE_LABEL[r.stage] ? `<span class="rv-stage rv-${esc(r.stage)}">${esc(STAGE_LABEL[r.stage])}</span>` : '';
     return `<figure class="rv-card">
       <div class="rv-top">
         ${r.who ? `<span class="rv-who">${esc(r.who)}</span>` : ''}

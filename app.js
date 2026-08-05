@@ -2420,7 +2420,7 @@ const Rev = {
       <img class="rvm-thumb" src="${escHtml(r.image_url)}" alt="">
       <div class="rvm-body">
         <div class="rvm-head">
-          <span class="rvm-stage ${escHtml(r.stage)}">${escHtml(RV_STAGE_LABEL[r.stage] || r.stage)}</span>
+          <span class="rvm-stage rvm-${escHtml(r.stage)}">${escHtml(RV_STAGE_LABEL[r.stage] || r.stage)}</span>
           ${r.who ? `<span class="rvm-who">${escHtml(r.who)}</span>` : ''}
           ${r.shown_at ? `<span class="rvm-date">${escHtml(r.shown_at)}</span>` : ''}
         </div>

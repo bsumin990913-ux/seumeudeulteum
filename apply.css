@@ -222,6 +222,7 @@ input.bad, textarea.bad { border-color:var(--error); }
 .sup-btn:active { opacity:.85; }
 .sup-btn.kakao { background:#FEE500; color:#191600; }
 .sup-btn.toss { background:#0064FF; color:#fff; }
+.sup-btn.threads { background:#111; color:#fff; }
 .sup-btn.account { background:var(--canvas); color:var(--fg); border:1px solid var(--field); }
 .sup-acc-line { font-size:17px; font-weight:700; word-break:break-all; }
 .sup-acc-copy { font-size:14px; font-weight:500; color:var(--muted); }
@@ -267,17 +268,19 @@ input.bad, textarea.bad { border-color:var(--error); }
 }
 .rv-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
 .rv-who { font-size:14.5px; font-weight:500; color:var(--muted); }
-/* 네 단계 모두 또렷하게 구분되도록 — 옅은 색은 화면 캡처로 옮기면 안 보일 수 있음 */
+/* 네 단계 모두 또렷하게 구분되도록 — 옅은 색은 화면 캡처로 옮기면 안 보일 수 있음.
+   수식 클래스에 rv- 를 붙인 이유: 그냥 .progress 로 두면 위쪽 진행바(.progress, height:3px)와
+   이름이 겹쳐서 배지가 3px 짜리 선으로 찌그러집니다. */
 .rv-stage {
   margin-left:auto; flex-shrink:0;
   font-size:13px; font-weight:700; letter-spacing:-.7px;
   border-radius:999px; padding:3px 10px;
   background:var(--line); color:var(--secondary);
 }
-.rv-stage.success { background:var(--accent); color:#fff; }
-.rv-stage.meet { background:var(--fg); color:#fff; }
-.rv-stage.progress { background:var(--neutral); color:#fff; }
-.rv-stage.etc { background:var(--canvas); color:var(--secondary); border:1px solid var(--field); }
+.rv-stage.rv-success { background:var(--accent); color:#fff; }
+.rv-stage.rv-meet { background:var(--fg); color:#fff; }
+.rv-stage.rv-progress { background:var(--neutral); color:#fff; }
+.rv-stage.rv-etc { background:var(--canvas); color:var(--secondary); border:1px solid var(--field); }
 
 .rv-shot {
   display:block; width:100%; height:auto;
