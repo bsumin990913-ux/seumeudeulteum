@@ -197,6 +197,34 @@ input.bad, textarea.bad { border-color:var(--error); }
 .threads-btn:active { opacity:.85; }
 .threads-note { font-size:14px; font-weight:500; color:var(--muted); margin-top:10px; text-align:center; }
 
+/* ── 오늘의 검사 연동 ──
+   0단계에서 '결과를 들고 왔다'고 알려주는 카드. 결과 없이 그냥 들어온
+   사람에게는 아예 안 보이므로(apply.js), 눈에 띄어도 방해가 되지 않습니다. */
+.test-card { border:2px solid var(--accent); background:#fff7fa; }
+.test-chips { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+.test-chip {
+  display:inline-flex; align-items:baseline; gap:6px;
+  padding:7px 13px; border-radius:999px;
+  background:var(--accent); color:#fff;
+  font-size:14px; font-weight:600; letter-spacing:-.5px;
+}
+.test-chip b { font-size:15.5px; font-weight:800; letter-spacing:.3px; }
+
+/* 완료 화면의 검사 안내. 스레드 DM 카드 바로 아래에 오므로 일부러 조용하게
+   — 테두리만 있는 카드입니다. 여기가 화려하면 필수인 DM을 이깁니다. */
+.quiz-card { display:block; text-decoration:none; color:inherit; border:1px solid var(--field); }
+.quiz-card .card-title, .quiz-card .card-desc { display:block; }
+.quiz-badge {
+  display:inline-block; margin-bottom:8px; padding:4px 10px;
+  border-radius:var(--r-chip); background:var(--tint);
+  font-size:13px; font-weight:700; color:var(--accent); letter-spacing:-.4px;
+}
+.quiz-go {
+  display:inline-block; margin-top:14px;
+  font-size:15.5px; font-weight:700; color:var(--accent); letter-spacing:-.5px;
+}
+.quiz-card:active { opacity:.85; }
+
 /* ── 완료 화면: 후원 안내 한 줄 ──
    버튼이 아니라 조용한 텍스트입니다. 스레드 DM 안내가 늘 먼저 보여야 하니까요. */
 .support-line {

@@ -45,6 +45,13 @@
       </div>
     </div>
 
+    <!-- 오늘의 검사에서 결과를 들고 온 경우에만 보입니다 (apply.js 가 켭니다) -->
+    <div class="card test-card hidden" id="testCard">
+      <p class="card-title">검사 결과를 가져왔어요</p>
+      <div class="test-chips" id="testChips"></div>
+      <p class="card-desc">신청서에 함께 저장돼서, 성향이 맞는 분을 찾을 때 참고해요. 아래에서 고치실 수도 있어요.</p>
+    </div>
+
     <div class="card">
       <p class="card-title">먼저 확인해 주세요</p>
       <p class="card-desc">만 19세 이상만 신청할 수 있어요. 신청한다고 바로 소개가 시작되지는 않고, 주선자가 확인한 뒤 진행됩니다. 작성 중인 내용은 이 브라우저에 임시 저장되니 중간에 나갔다 오셔도 괜찮아요.</p>
@@ -315,6 +322,16 @@
       </a>
       <p class="threads-note">DM 확인 후, 보통 2~3일 안에 적어주신 스레드 계정으로 안내드려요.</p>
     </div>
+
+    <!-- 검사 안내 — 스레드 DM 카드 '다음'에 옵니다.
+         DM이 먼저라는 순서를 문구로도 못박아 뒀습니다. 여기서 사람을 데려가면
+         정작 필수인 DM을 안 보내고 나가버립니다. -->
+    <a class="card quiz-card" id="quizCard" href="#" target="_blank" rel="noopener">
+      <span class="quiz-badge">선택 · 5분</span>
+      <span class="card-title" id="quizCardTitle"></span>
+      <span class="card-desc" id="quizCardDesc"></span>
+      <span class="quiz-go">검사하러 가기 →</span>
+    </a>
 
     <div class="card">
       <p class="card-title">신청을 취소하거나 정보를 고치고 싶다면</p>

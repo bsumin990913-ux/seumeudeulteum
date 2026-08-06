@@ -17,7 +17,20 @@ const CONTACT = {
   threads: '@somemate_love',
   threadsUrl: 'https://www.threads.com/@somemate_love'
 };
-const CONSENT_VERSION = '2026-08-05';
+const CONSENT_VERSION = '2026-08-06';
+
+// ── 오늘의 검사 연동 ──────────────────────────────
+// 결과 화면에서 '소개팅 신청하기'를 누르면 이 폼 주소에 유형 코드가 붙어 넘어옵니다.
+//   ?src=oneul&mbti=ENFP&love=SCEM&ideal=FMDL
+// 오는 건 네 글자 코드뿐입니다. 이름도 답변도 오지 않아요.
+const QUIZ = {
+  home:  'https://love-mbti-mu.vercel.app/',
+  love:  'https://love-mbti-mu.vercel.app/love.html',
+  mbti:  'https://love-mbti-mu.vercel.app/mbti.html',
+  ideal: 'https://love-mbti-mu.vercel.app/ideal.html'
+};
+const QUIZ_LABEL = { mbti: '성격', love: '연애 유형', ideal: '이상형' };
+const REFERRAL_FROM_QUIZ = '오늘의 검사';
 
 // 후원 안내 — 완료 화면 맨 아래에 조용한 한 줄로만 나옵니다.
 // support.html은 설정 없이도 'DM으로 받기'로 동작하니 언제 켜도 괜찮아요.
@@ -44,7 +57,8 @@ const S = {
   chips: { fDrink: '', fSmoke: '', fCar: '' },
   photos: [],
   consent: { privacy: false, sensitive: false, third: false, age: false, marketing: false },
-  sending: false
+  sending: false,
+  tests: {}          // 오늘의 검사에서 들고 온 유형 코드
 };
 const REQUIRED_CONSENT = ['privacy', 'sensitive', 'third', 'age'];
 
@@ -71,6 +85,58 @@ function normThreads(v) {
   s = s.replace(/^@+/, '').replace(/[^A-Za-z0-9._]/g, '');
   if (!s || s.length > 30) return '';
   return '@' + s;
+}
+
+// ═══════════════════════════════════════
+//  오늘의 검사에서 넘어온 결과 읽기
+// ═══════════════════════════════════════
+// 주소창 값은 누구나 손댈 수 있으니 '네 글자 대문자'만 통과시킵니다.
+// 이상한 값이 와도 그냥 무시하고 빈 신청서로 이어집니다.
+function readTestResults() {
+  let q;
+  try { q = new URLSearchParams(location.search); } catch (e) { return {}; }
+
+  const out = {};
+  Object.keys(QUIZ_LABEL).forEach(k => {
+    const v = String(q.get(k) || '').trim().toUpperCase();
+    if (/^[A-Z]{4}$/.test(v)) out[k] = v;
+  });
+
+  if (!Object.keys(out).length) return {};
+  out.src = 'oneul';
+  out.at = new Date().toISOString();
+  return out;
+}
+
+/** 들고 온 결과를 사람이 읽는 한 줄로. 예: '연애 유형 SCEM · 성격 ENFP' */
+function testSummaryText() {
+  return Object.keys(QUIZ_LABEL)
+    .filter(k => S.tests[k])
+    .map(k => `${QUIZ_LABEL[k]} ${S.tests[k]}`)
+    .join(' · ');
+}
+
+/**
+ * 결과를 들고 왔으면 0단계에 배지를 띄우고, MBTI 칸과 유입 경로를 미리 채웁니다.
+ * 둘 다 사용자가 지우거나 고칠 수 있게 값만 넣고 잠그지는 않습니다.
+ */
+function applyTestResults() {
+  const card = $('testCard');
+  if (!Object.keys(S.tests).length) { if (card) card.classList.add('hidden'); return; }
+
+  if (card) {
+    card.classList.remove('hidden');
+    $('testChips').innerHTML = Object.keys(QUIZ_LABEL)
+      .filter(k => S.tests[k])
+      .map(k => `<span class="test-chip"><b>${escapeHtml(S.tests[k])}</b>${escapeHtml(QUIZ_LABEL[k])}</span>`)
+      .join('');
+  }
+
+  // 성격 검사 코드는 MBTI 칸과 모양이 같습니다. 비어 있을 때만 채웁니다 —
+  // 임시저장으로 돌아온 사람이 직접 적어둔 값을 덮으면 안 됩니다.
+  if (S.tests.mbti && !val('fMbti')) $('fMbti').value = S.tests.mbti;
+  if (!val('fReferral')) $('fReferral').value = REFERRAL_FROM_QUIZ;
+  saveDraft();
 }
 
 // ═══════════════════════════════════════
@@ -136,7 +202,7 @@ function validateStep() {
 // ═══════════════════════════════════════
 const DRAFT_KEY = 'sdt_apply_draft';
 function saveDraft() {
-  const d = { gender: S.gender, chips: S.chips, photos: S.photos, fields: {} };
+  const d = { gender: S.gender, chips: S.chips, photos: S.photos, tests: S.tests, fields: {} };
   TEXT_IDS.forEach(id => { d.fields[id] = val(id); });
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) { }
 }
@@ -148,6 +214,9 @@ function loadDraft() {
   if (d.gender) setGender(d.gender);
   if (d.chips) { Object.assign(S.chips, d.chips); syncChips(); }
   if (Array.isArray(d.photos)) { S.photos = d.photos.slice(0, MAX_PHOTOS); renderPhotos(); }
+  // 검사 결과는 주소창에 한 번만 실려 옵니다. 중간에 나갔다 그냥 /apply 로
+  // 돌아온 사람에게서 결과가 사라지지 않도록 임시저장에도 같이 담아둡니다.
+  if (d.tests && typeof d.tests === 'object') S.tests = d.tests;
 }
 function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) { } }
 
@@ -241,7 +310,8 @@ function renderSummary() {
     ['직업', val('fJob')],
     ['사진', S.photos.length ? `${S.photos.length}장` : '없음'],
     ['스레드', normThreads(val('fThreads'))],
-    ['카카오톡', val('fKakao')]
+    ['카카오톡', val('fKakao')],
+    ['검사 결과', testSummaryText()]
   ].filter(r => r[1]);
   $('summary').innerHTML = rows.map(([k, v]) =>
     `<div class="sum-row"><dt>${k}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
@@ -285,9 +355,16 @@ function buildPayload() {
     contact_threads: normThreads(val('fThreads')),
     contact_kakao: val('fKakao'),
     referral: val('fReferral'),
+    test_results: S.tests,
     consent: Object.assign({}, S.consent, { version: CONSENT_VERSION, agreed_at: new Date().toISOString() }),
     status: 'pending'
   };
+}
+
+/** 'test_results 라는 칸이 없다'는 뜻의 오류인지 본다 (PostgREST: PGRST204) */
+function isMissingColumn(error, column) {
+  const msg = String((error && error.message) || '');
+  return error && (error.code === 'PGRST204' || /column|schema cache/i.test(msg)) && msg.includes(column);
 }
 
 async function submit() {
@@ -304,7 +381,19 @@ async function submit() {
   btn.textContent = '신청서를 보내는 중…';
 
   // 익명 방문자는 읽기 권한이 없으므로 .select() 없이 넣기만 합니다.
-  const { error } = await sb.from('applications').insert(buildPayload());
+  let { error } = await sb.from('applications').insert(buildPayload());
+
+  // test_results 칸이 아직 없는 상태(upgrade_v8.sql 미실행)에서도 신청은 받아야 합니다.
+  // 검사 결과 하나 때문에 접수가 통째로 막히는 건 말이 안 됩니다.
+  // 그 칸만 빼고 한 번 더 넣고, 결과는 유입 경로 칸에 글자로 남깁니다.
+  if (error && isMissingColumn(error, 'test_results')) {
+    console.warn('[연동] test_results 칸이 없어요 — database/upgrade_v8.sql 을 실행해 주세요');
+    const fallback = buildPayload();
+    delete fallback.test_results;
+    const summary = testSummaryText();
+    if (summary) fallback.referral = [fallback.referral, `(${summary})`].filter(Boolean).join(' ');
+    ({ error } = await sb.from('applications').insert(fallback));
+  }
 
   S.sending = false;
   btn.disabled = false;
@@ -405,8 +494,27 @@ function init() {
 
   loadDraft();
   tidyThreads();   // 임시저장에서 불러온 아이디도 같은 모양으로 맞춰줌
+
+  // 주소창에 실려 온 결과가 임시저장본보다 우선입니다 (방금 검사하고 온 사람)
+  const fromUrl = readTestResults();
+  if (Object.keys(fromUrl).length) S.tests = fromUrl;
+  applyTestResults();
+  syncQuizCard();
+
   syncConsent();
   goStep(0);
+}
+
+/** 완료 화면의 검사 안내 — 이미 결과를 들고 온 사람에겐 문구를 바꿔 준다 */
+function syncQuizCard() {
+  const has = Object.keys(S.tests).some(k => QUIZ_LABEL[k]);
+  $('quizCardTitle').textContent = has
+    ? '다른 검사도 해보실래요?'
+    : 'DM까지 보내셨다면, 검사도 하나 해보실래요?';
+  $('quizCardDesc').textContent = has
+    ? '보내주신 결과는 잘 받았어요. 성격 검사와 이상형 검사도 있는데, 결과를 DM으로 같이 보내주시면 소개할 때 함께 참고할게요.'
+    : '연애할 때 어떤 사람인지 알려주시면, 성향이 맞는 분을 찾을 때 참고해요. 5분이면 끝나고, 결과 화면을 캡처해서 DM으로 같이 보내주시면 됩니다.';
+  $('quizCard').href = has ? QUIZ.home : QUIZ.love;
 }
 
 document.addEventListener('DOMContentLoaded', init);

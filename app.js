@@ -1069,6 +1069,35 @@ function threadsRow(handle) {
     <td><a class="threads-link" href="${escHtml(url)}" target="_blank" rel="noopener">@${escHtml(id)} <i class="ti ti-external-link"></i></a></td></tr>`;
 }
 
+// ── 오늘의 검사 결과 ──
+// 신청 폼이 test_results 에 담아 보내고, 승인하면 후보로 그대로 넘어옵니다.
+// { mbti:'ENFP', love:'SCEM', ideal:'FMDL', src:'oneul' }
+const QUIZ_LABEL = { mbti: '성격 검사', love: '연애 유형', ideal: '이상형 검사' };
+const QUIZ_PAGE = {
+  mbti: 'https://love-mbti-mu.vercel.app/types.html?test=mbti',
+  love: 'https://love-mbti-mu.vercel.app/types.html?test=love',
+  ideal: 'https://love-mbti-mu.vercel.app/types.html?test=ideal'
+};
+const QUIZ_HOME = 'https://love-mbti-mu.vercel.app/';
+
+/** 유형 설명 페이지로 바로 갈 수 있게 링크로 보여줍니다 */
+function testRows(t) {
+  const r = t || {};
+  return Object.keys(QUIZ_LABEL).filter(k => r[k]).map(k =>
+    `<tr><td><i class="ti ti-heart-code"></i>${QUIZ_LABEL[k]}</td>
+      <td><a class="threads-link" href="${escHtml(QUIZ_PAGE[k])}" target="_blank" rel="noopener">${escHtml(r[k])} <i class="ti ti-external-link"></i></a></td></tr>`
+  ).join('');
+}
+
+/** 후보에게 DM으로 보낼 검사 권유 문구. 이미 등록된 분들 결과를 채울 때 씁니다 */
+function quizInviteText(c) {
+  return `${c.name}님 안녕하세요, 썸메이트예요!\n\n`
+    + `더 잘 맞는 분을 찾아드리려고 연애 유형 검사를 준비했어요.\n`
+    + `5분이면 끝나고, 결과 화면을 캡처해서 이 대화방에 보내주시면 매칭에 참고할게요.\n\n`
+    + `${QUIZ_HOME}\n\n`
+    + `물론 안 하셔도 소개는 그대로 진행돼요 :)`;
+}
+
 // keepTrail: 같은 화면을 다시 그리거나 발자국을 따라 되돌아올 때는 true.
 //            목록에서 새로 열 때는 넘기지 않으면 되고, 그러면 발자국이 초기화됩니다.
 function openDetail(id, keepTrail) {
@@ -1122,6 +1151,7 @@ function openDetail(id, keepTrail) {
         ${infoRow('glass-full', '음주', c.drinking)}
         ${infoRow('smoking-no', '흡연', c.smoking)}
         ${infoRow('car', '자차', c.car)}
+        ${testRows(c.test_results)}
       </table>
       ${hobbies.length ? `<div class="d-section-title">취미</div><div class="tag-row">${hobbies.map(h => `<span class="tag">${escHtml(h)}</span>`).join('')}</div>` : ''}
       ${c.personality ? `<div class="d-section-title">성격</div><p class="d-desc">${escHtml(c.personality)}</p>` : ''}
@@ -1168,6 +1198,12 @@ function openDetail(id, keepTrail) {
       </div>
       <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
       <div style="height:14px"></div>
+
+      ${Object.keys(c.test_results || {}).some(k => QUIZ_LABEL[k]) ? '' : `
+      <div class="d-section-title"><i class="ti ti-heart-code"></i> 검사 결과</div>
+      <p class="hint-text" style="margin:0 0 8px">아직 검사 결과가 없어요. 아래 문구를 복사해 스레드 DM으로 보내면, 결과를 받아 매칭에 참고할 수 있어요.</p>
+      <button class="btn soft" id="dQuizInviteBtn"><i class="ti ti-copy"></i> 검사 권유 DM 문구 복사</button>
+      <div style="height:14px"></div>`}
 
       <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
       <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
@@ -1219,6 +1255,16 @@ function openDetail(id, keepTrail) {
   const goM = $('dGoMatchBtn'), newM = $('dMatchBtn');
   if (goM) goM.onclick = () => { Trail.push('cand', id); closeModal('detailModal'); openMatchDetail(activeM.id, true); };
   if (newM) newM.onclick = () => { closeModal('detailModal'); openCreateMatch(c); };
+
+  // 검사 권유 DM 문구 복사 (결과가 아직 없는 후보에게만 버튼이 나옵니다)
+  const quizBtn = $('dQuizInviteBtn');
+  if (quizBtn) quizBtn.onclick = () => {
+    const text = quizInviteText(c);
+    const done = () => toast('DM 문구를 복사했어요');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+    } else fallbackCopy(text, done);
+  };
 
   // 관리자 메모 저장
   $('dMemoSaveBtn').onclick = async () => {
@@ -1293,6 +1339,11 @@ function copyProfile(c) {
   if (c.education) L.push(`학력: ${c.education}`);
   if (c.religion) L.push(`종교: ${c.religion}`);
   if (c.mbti) L.push(`MBTI: ${c.mbti}`);
+  // 검사 결과 — 스레드 홍보 글에 한 줄 들어가면 사람 소개가 훨씬 잘 읽힙니다
+  Object.keys(QUIZ_LABEL).forEach(k => {
+    const v = (c.test_results || {})[k];
+    if (v) L.push(`${QUIZ_LABEL[k]}: ${v}`);
+  });
   if (c.drinking) L.push(`음주: ${c.drinking}`);
   if (c.smoking) L.push(`흡연: ${c.smoking}`);
   if (c.car) L.push(`자차: ${c.car}`);
@@ -1992,6 +2043,7 @@ function openAppDetail(id) {
       ${infoRow('smoking-no', '흡연', a.smoking)}
       ${infoRow('car', '자차', a.car)}
       ${infoRow('ball-tennis', '취미', a.hobbies)}
+      ${testRows(a.test_results)}
     </table>
     ${a.personality ? `<div class="d-section-title">성격</div><p class="d-desc">${escHtml(a.personality)}</p>` : ''}
     ${a.description ? `<div class="d-section-title">하고 싶은 말</div><p class="d-desc">${escHtml(a.description)}</p>` : ''}
@@ -2197,6 +2249,7 @@ async function approveApplication(a) {
     hobbies: a.hobbies || '', personality: a.personality || '', description: a.description || '',
     ideal: a.ideal || {}, photos: a.photos || [],
     contact_threads: a.contact_threads || '', phone: a.phone || '', source: 'apply',
+    test_results: a.test_results || {},
     admin_memo: memo
   });
   if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-user-check"></i> 승인하고 후보로 등록'; }
@@ -2854,6 +2907,15 @@ async function init() {
   $('rejSearch').addEventListener('input', e => { Rej.query = e.target.value; Rej._renderPicker(); });
   $('rejSaveBtn').addEventListener('click', () => Rej.save());
   $('rejSkipBtn').addEventListener('click', () => Rej.skip());
+
+  // 오늘의 검사 주소
+  $('copyQuizBtn').addEventListener('click', () => {
+    const done = () => toast('검사 주소가 복사되었어요');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(QUIZ_HOME).then(done).catch(() => fallbackCopy(QUIZ_HOME, done));
+    } else fallbackCopy(QUIZ_HOME, done);
+  });
+  $('openQuizBtn').addEventListener('click', () => window.open(QUIZ_HOME, '_blank', 'noopener'));
 
   // 공개 신청 폼 주소
   const applyUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'apply';
