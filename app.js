@@ -1089,15 +1089,6 @@ function testRows(t) {
   ).join('');
 }
 
-/** 후보에게 DM으로 보낼 검사 권유 문구. 이미 등록된 분들 결과를 채울 때 씁니다 */
-function quizInviteText(c) {
-  return `${c.name}님 안녕하세요, 썸메이트예요!\n\n`
-    + `더 잘 맞는 분을 찾아드리려고 연애 유형 검사를 준비했어요.\n`
-    + `5분이면 끝나고, 결과 화면을 캡처해서 이 대화방에 보내주시면 매칭에 참고할게요.\n\n`
-    + `${QUIZ_HOME}\n\n`
-    + `물론 안 하셔도 소개는 그대로 진행돼요 :)`;
-}
-
 // keepTrail: 같은 화면을 다시 그리거나 발자국을 따라 되돌아올 때는 true.
 //            목록에서 새로 열 때는 넘기지 않으면 되고, 그러면 발자국이 초기화됩니다.
 function openDetail(id, keepTrail) {
@@ -1199,12 +1190,6 @@ function openDetail(id, keepTrail) {
       <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
       <div style="height:14px"></div>
 
-      ${Object.keys(c.test_results || {}).some(k => QUIZ_LABEL[k]) ? '' : `
-      <div class="d-section-title"><i class="ti ti-heart-code"></i> 검사 결과</div>
-      <p class="hint-text" style="margin:0 0 8px">아직 검사 결과가 없어요. 아래 문구를 복사해 스레드 DM으로 보내면, 결과를 받아 매칭에 참고할 수 있어요.</p>
-      <button class="btn soft" id="dQuizInviteBtn"><i class="ti ti-copy"></i> 검사 권유 DM 문구 복사</button>
-      <div style="height:14px"></div>`}
-
       <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
       <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
       <button class="btn soft" id="dMemoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 메모 저장</button>
@@ -1255,16 +1240,6 @@ function openDetail(id, keepTrail) {
   const goM = $('dGoMatchBtn'), newM = $('dMatchBtn');
   if (goM) goM.onclick = () => { Trail.push('cand', id); closeModal('detailModal'); openMatchDetail(activeM.id, true); };
   if (newM) newM.onclick = () => { closeModal('detailModal'); openCreateMatch(c); };
-
-  // 검사 권유 DM 문구 복사 (결과가 아직 없는 후보에게만 버튼이 나옵니다)
-  const quizBtn = $('dQuizInviteBtn');
-  if (quizBtn) quizBtn.onclick = () => {
-    const text = quizInviteText(c);
-    const done = () => toast('DM 문구를 복사했어요');
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
-    } else fallbackCopy(text, done);
-  };
 
   // 관리자 메모 저장
   $('dMemoSaveBtn').onclick = async () => {

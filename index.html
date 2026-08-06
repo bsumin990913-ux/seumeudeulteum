@@ -195,7 +195,6 @@
 
     <div class="set-card">
       <div class="set-title"><i class="ti ti-database"></i> 데이터 관리</div>
-      <p class="set-desc">데이터는 Supabase 클라우드에 저장되고, 로그인하면 어느 기기에서나 같은 데이터를 볼 수 있어요. 만일을 대비해 가끔 백업해 주세요.</p>
       <div class="btn-row">
         <button class="btn soft" id="exportBtn"><i class="ti ti-download"></i> 백업 (JSON)</button>
         <button class="btn ghost" id="importBtn"><i class="ti ti-upload"></i> 복원 (병합)</button>
@@ -203,40 +202,35 @@
       <input type="file" id="importFile" accept=".json" class="hidden">
       <div style="height:8px"></div>
       <button class="btn ghost" id="migratePhotosBtn"><i class="ti ti-cloud-up"></i> 예전 사진을 스토리지로 이전</button>
-      <p class="set-desc" style="margin:8px 0 0">예전 방식(DB 내장)으로 저장된 사진을 클라우드 스토리지로 옮겨서 로딩 속도를 높여요.</p>
     </div>
 
     <div class="set-card">
       <div class="set-title"><i class="ti ti-link"></i> 공개 신청 폼</div>
-      <p class="set-desc">이 주소를 인스타그램 프로필이나 오픈채팅방에 올려두면, 신청자가 로그인 없이 신청서를 낼 수 있어요. 들어온 신청서는 아래 [신청] 탭에서 승인하면 후보로 등록됩니다.</p>
       <div class="apply-url" id="applyUrl"></div>
       <div class="btn-row">
         <button class="btn soft" id="copyApplyBtn"><i class="ti ti-copy"></i> 주소 복사</button>
         <button class="btn ghost" id="openApplyBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0">개인정보처리방침에 <b>상호·보호책임자·문의처</b>를 채워 넣어야 해요. <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-mid);font-weight:600">방침 열어보기</a></p>
+      <p class="set-desc" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-mid);font-weight:600">개인정보처리방침 열어보기</a></p>
     </div>
 
     <div class="set-card">
       <div class="set-title"><i class="ti ti-heart-code"></i> 오늘의 검사 연동</div>
-      <p class="set-desc">검사 결과 화면의 [소개팅 신청하기]를 누르면 유형 코드가 신청서에 함께 담겨 넘어와요. 이미 등록된 후보에게는 후보 상세 화면의 [검사 권유 DM 문구 복사]로 링크를 보내면 됩니다.</p>
       <div class="apply-url" id="quizUrl">https://love-mbti-mu.vercel.app/</div>
       <div class="btn-row">
         <button class="btn soft" id="copyQuizBtn"><i class="ti ti-copy"></i> 주소 복사</button>
         <button class="btn ghost" id="openQuizBtn"><i class="ti ti-external-link"></i> 열어 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0">결과가 신청서에 담기려면 <code>database/upgrade_v8.sql</code>을 한 번 실행해야 해요. 실행 전에도 신청은 정상적으로 접수되고, 결과는 유입 경로 칸에 글자로만 남습니다.</p>
     </div>
 
     <div class="set-card">
       <div class="set-title"><i class="ti ti-message-star"></i> 후기 관리</div>
-      <p class="set-desc">감사 인사 캡처를 올리면 공개 후기 페이지(<code>/reviews</code>)에 바로 반영돼요. SNS에 올려둔 링크는 그대로 두시면 됩니다.</p>
       <div class="apply-url" id="reviewsUrl"></div>
       <div class="btn-row">
         <button class="btn soft" id="reviewManageBtn"><i class="ti ti-photo-plus"></i> 후기 올리기</button>
         <button class="btn ghost" id="openReviewsBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0">올리기 전에 <b>당사자 동의</b>를 받고, 이름·프로필 사진·직장처럼 알아볼 수 있는 부분은 꼭 가려주세요.</p>
+      <p class="set-desc" style="margin:10px 0 0">올리기 전에 <b>당사자 동의</b>를 받고, 알아볼 수 있는 부분은 가려주세요.</p>
     </div>
 
     <div class="set-card">
