@@ -2909,13 +2909,17 @@ async function init() {
   $('rejSkipBtn').addEventListener('click', () => Rej.skip());
 
   // 오늘의 검사 주소
-  $('copyQuizBtn').addEventListener('click', () => {
+  // 이 두 버튼은 index.html 설정 탭에만 있습니다. app.js 만 먼저 올라가고 화면이
+  // 아직 예전 것이면 버튼이 없는데, 여기서 터지면 아래 로그인 연결까지 통째로
+  // 안 걸려서 로그인이 안 됩니다. 없으면 그냥 건너뜁니다.
+  const quizCopyBtn = $('copyQuizBtn'), quizOpenBtn = $('openQuizBtn');
+  if (quizCopyBtn) quizCopyBtn.addEventListener('click', () => {
     const done = () => toast('검사 주소가 복사되었어요');
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(QUIZ_HOME).then(done).catch(() => fallbackCopy(QUIZ_HOME, done));
     } else fallbackCopy(QUIZ_HOME, done);
   });
-  $('openQuizBtn').addEventListener('click', () => window.open(QUIZ_HOME, '_blank', 'noopener'));
+  if (quizOpenBtn) quizOpenBtn.addEventListener('click', () => window.open(QUIZ_HOME, '_blank', 'noopener'));
 
   // 공개 신청 폼 주소
   const applyUrl = location.origin + location.pathname.replace(/\/[^/]*$/, '/') + 'apply';

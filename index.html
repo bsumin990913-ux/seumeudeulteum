@@ -218,6 +218,17 @@
     </div>
 
     <div class="set-card">
+      <div class="set-title"><i class="ti ti-heart-code"></i> 오늘의 검사 연동</div>
+      <p class="set-desc">검사 결과 화면의 [소개팅 신청하기]를 누르면 유형 코드가 신청서에 함께 담겨 넘어와요. 이미 등록된 후보에게는 후보 상세 화면의 [검사 권유 DM 문구 복사]로 링크를 보내면 됩니다.</p>
+      <div class="apply-url" id="quizUrl">https://love-mbti-mu.vercel.app/</div>
+      <div class="btn-row">
+        <button class="btn soft" id="copyQuizBtn"><i class="ti ti-copy"></i> 주소 복사</button>
+        <button class="btn ghost" id="openQuizBtn"><i class="ti ti-external-link"></i> 열어 보기</button>
+      </div>
+      <p class="set-desc" style="margin:10px 0 0">결과가 신청서에 담기려면 <code>database/upgrade_v8.sql</code>을 한 번 실행해야 해요. 실행 전에도 신청은 정상적으로 접수되고, 결과는 유입 경로 칸에 글자로만 남습니다.</p>
+    </div>
+
+    <div class="set-card">
       <div class="set-title"><i class="ti ti-message-star"></i> 후기 관리</div>
       <p class="set-desc">감사 인사 캡처를 올리면 공개 후기 페이지(<code>/reviews</code>)에 바로 반영돼요. SNS에 올려둔 링크는 그대로 두시면 됩니다.</p>
       <div class="apply-url" id="reviewsUrl"></div>
