@@ -954,17 +954,19 @@ function renderRecoSection(c) {
         ? `<button type="button" class="reco-more" id="recoFoldBtn"><i class="ti ti-chevron-up"></i>접기</button>`
         : '');
 
+  // 펼쳤을 때는 목록 자체에 스크롤을 주어, 상세 화면이 끝없이 길어지지 않게 합니다
   return `<div class="d-section-title"><i class="ti ti-sparkles"></i> 추천 상대
-      <span class="c-meta" style="font-weight:500">${all.length}명</span></div>`
+      <span class="c-meta" style="font-weight:500">${all.length}명</span></div>
+    <div class="reco-list${recoOpen ? ' scroll' : ''}">`
     + scored.map(x => `
     <div class="reco-item" data-rid="${x.t.id}">
       ${avatarHtml(x.t, 'c-avatar')}
       <div style="min-width:0;flex:1">
-        <div style="font-size:15.5px;font-weight:700">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
+        <div class="reco-name">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
         <div class="reco-tags">${x.reasons.map(r => `<span class="reco-tag ${r.ok ? '' : 'bad'}">${escHtml(r.label)}</span>`).join('')}</div>
       </div>
       <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" aria-label="${escHtml(x.t.name)}님과 이어주기" style="background:var(--pink-soft);color:var(--pink-dark);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
-    </div>`).join('') + more;
+    </div>`).join('') + `</div>` + more;
 }
 
 // ── 후보의 전체 매칭 기록 (종료 포함) ──
@@ -1970,15 +1972,17 @@ function endedCardHtml(m) {
   const rejs = rejectionsBetween(m.male_id, m.female_id);
   const ended = lastStatusAt(m, 'ended');
 
+  // 사유를 안 적었으면 그 줄은 아예 그리지 않습니다.
+  // '사유를 남기지 않았어요'는 알려주는 게 없으면서 자리만 차지해요.
   const reasons = rejs.length
-    ? rejs.map(r => `<div class="me-reason">
+    ? rejs.map(r => `<div class="me-reason${r.reason ? '' : ' bare'}">
         <div class="me-reason-head">
           <b>${escHtml(candName(r.from_id))}</b>님이 접었어요
           <span class="me-stage">${escHtml(REJECT_STAGE[r.stage] || r.stage)}</span>
         </div>
-        ${r.reason ? `<p class="me-reason-text">${escHtml(r.reason)}</p>` : '<p class="me-reason-text none">사유를 남기지 않았어요</p>'}
+        ${r.reason ? `<p class="me-reason-text">${escHtml(r.reason)}</p>` : ''}
       </div>`).join('')
-    : `<div class="me-reason none-box"><i class="ti ti-info-circle"></i>거절 기록 없이 종료되었어요</div>`;
+    : `<div class="me-reason none-box"><i class="ti ti-info-circle"></i>거절 기록 없이 종료</div>`;
 
   return `<div class="m-card ended" data-mid="${m.id}">
     <div class="me-top">
@@ -1990,11 +1994,19 @@ function endedCardHtml(m) {
     </div>
     <div class="me-body">${reasons}</div>
     ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:13.5px"></i> ${escHtml(m.memo)}</div>` : ''}
-    <div class="me-foot">
-      <span>${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</span>
-      ${ended ? `<span>${String(ended).slice(0, 10).replace(/-/g, '.')} 종료</span>` : ''}
-    </div>
+    <div class="me-foot">${escHtml(periodLabel(m.created_at, ended))}</div>
   </div>`;
+}
+
+// '2026.07.31 → 08.10' 처럼 한 줄로 줄여 씁니다.
+// 같은 날 끝났으면 날짜를 두 번 쓰지 않고, 종료 기록이 없으면 시작일만 보여줍니다.
+function periodLabel(from, to) {
+  const d = v => String(v || '').slice(0, 10).replace(/-/g, '.');
+  const a = d(from), b = d(to);
+  if (!b) return `${a} 시작`;
+  if (a === b) return `${a} 시작·종료`;
+  const sameYear = a.slice(0, 4) === b.slice(0, 4);
+  return `${a} → ${sameYear ? b.slice(5) : b} 종료`;
 }
 
 // 타임라인에서 그 상태로 바뀐 마지막 시각을 찾습니다

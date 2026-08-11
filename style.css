@@ -363,7 +363,8 @@ button:focus-visible,
 /* ── 끝난 매칭 카드 ──
    진행 중인 카드와 일부러 다르게 생겼습니다. 여기서 궁금한 건 두 사람의 얼굴이 아니라
    '누가 왜 접었는지'라서, 이름은 한 줄로 눕히고 사유에 자리를 내줍니다. */
-.m-card.ended { background:#FCFCFC; }
+/* 끝난 매칭은 지나간 일이라, 진행 중인 카드보다 자리를 덜 차지하게 눌러 담습니다 */
+.m-card.ended { background:#FCFCFC; padding:12px 13px; }
 .me-top { display:flex; align-items:center; gap:10px; }
 .me-names { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
 .me-face {
@@ -377,20 +378,21 @@ button:focus-visible,
 .me-name { font-size:15px; font-weight:700; color:var(--gray); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .me-x { color:var(--gray-mid); font-weight:500; margin:0 2px; }
 
-.me-body { margin-top:var(--sp-3); display:flex; flex-direction:column; gap:var(--sp-2); }
-.me-reason { background:var(--orange-soft); border-radius:var(--radius-sm); padding:11px 13px; }
-.me-reason-head { font-size:13.5px; color:var(--cream-dark); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.me-body { margin-top:var(--sp-2); display:flex; flex-direction:column; gap:6px; }
+.me-reason { background:var(--orange-soft); border-radius:10px; padding:8px 11px; }
+/* 사유를 안 적은 기록은 한 줄짜리라 위아래를 더 얇게 */
+.me-reason.bare { padding:6px 11px; }
+.me-reason-head { font-size:13px; color:var(--cream-dark); display:flex; align-items:center; gap:6px; flex-wrap:wrap; line-height:1.5; }
 .me-reason-head b { color:var(--pink-dark); font-weight:700; }
-.me-stage { font-size:11.5px; font-weight:700; background:var(--white); color:var(--cream-dark); border-radius:20px; padding:2px 8px; }
-.me-reason-text { font-size:14px; line-height:1.55; color:#3F3F3F; margin-top:5px; white-space:pre-wrap; }
-.me-reason-text.none { color:var(--gray-mid); font-style:italic; }
+.me-stage { font-size:11px; font-weight:700; background:var(--white); color:var(--cream-dark); border-radius:20px; padding:1px 7px; }
+.me-reason-text { font-size:13.5px; line-height:1.5; color:#3F3F3F; margin-top:3px; white-space:pre-wrap; }
 .me-reason.none-box {
-  display:flex; align-items:center; gap:7px;
-  background:var(--gray-bg); color:var(--gray); font-size:13.5px;
+  display:flex; align-items:center; gap:6px; padding:6px 11px;
+  background:var(--gray-bg); color:var(--gray-mid); font-size:12.5px;
 }
-.me-reason.none-box i { font-size:16px; }
+.me-reason.none-box i { font-size:14px; }
 
-.me-foot { display:flex; gap:var(--sp-3); margin-top:var(--sp-3); padding-top:var(--sp-2); border-top:1px solid var(--gray-bg); font-size:12.5px; color:var(--gray-mid); }
+.me-foot { margin-top:var(--sp-2); font-size:12px; color:var(--gray-mid); }
 
 /* ── 설정 뷰 ── */
 .set-card { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:var(--sp-4) 20px; margin-bottom:var(--sp-3); }
@@ -862,11 +864,33 @@ button:focus-visible,
   font-size:16px; background:var(--white); margin-bottom:var(--sp-2);
 }
 
-/* ── 추천 상대 ── */
-.reco-item { display:flex; align-items:center; gap:10px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:12px; margin-bottom:var(--sp-2); cursor:pointer; background:var(--white); }
+/* ── 추천 상대 ──
+   접혀 있을 때(3명)는 그냥 쌓이고, [더 보기]로 펼치면 목록 안에서 스크롤됩니다.
+   접힌 상태까지 스크롤 상자로 만들면, 세 줄짜리 목록 위에서 손가락이 헛돌아요. */
+.reco-list { display:flex; flex-direction:column; gap:6px; }
+/* 이름 줄은 한 줄로 붙잡아 둡니다. 지역까지 길어지면 줄이 늘어나 카드가 들쭉날쭉해져요 */
+.reco-name { font-size:14.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.reco-name .c-meta { font-size:12.5px; }
+.reco-list.scroll {
+  max-height:min(46vh, 380px);
+  overflow-y:auto;
+  overscroll-behavior:contain;      /* 끝에 닿아도 뒤 화면이 따라 움직이지 않게 */
+  padding-right:4px;
+  -webkit-overflow-scrolling:touch;
+  /* 위아래로 더 있다는 걸 옅은 그림자로 알려줍니다 */
+  background:
+    linear-gradient(var(--white) 30%, rgba(255,255,255,0)) top / 100% 24px no-repeat,
+    linear-gradient(rgba(255,255,255,0), var(--white) 70%) bottom / 100% 24px no-repeat,
+    radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.10), rgba(0,0,0,0)) top / 100% 8px no-repeat,
+    radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.10), rgba(0,0,0,0)) bottom / 100% 8px no-repeat;
+  background-attachment:local, local, scroll, scroll;
+}
+.reco-item { display:flex; align-items:center; gap:9px; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:9px 10px; cursor:pointer; background:var(--white); }
 .reco-item:active { border-color:var(--pink); }
-.reco-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
-.reco-tag { font-size:12px; background:var(--pink-soft); color:var(--pink-dark); border-radius:10px; padding:2px 8px; font-weight:600; }
+/* 추천 목록 안에서는 얼굴을 조금 작게 — 한 화면에 더 많이 보이게 */
+.reco-item .c-avatar { width:38px; height:38px; font-size:19px; }
+.reco-tags { display:flex; flex-wrap:wrap; gap:3px; margin-top:3px; }
+.reco-tag { font-size:11.5px; background:var(--pink-soft); color:var(--pink-dark); border-radius:8px; padding:1px 7px; font-weight:600; line-height:1.55; }
 .reco-tag.bad { background:#FDECE7; color:#C13515; }
 /* 추천 상대 더 보기 / 접기 */
 .reco-more {
