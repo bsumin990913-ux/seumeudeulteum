@@ -913,21 +913,28 @@ function jobFit(p, t) {
 function matchScore(a, b) {
   const reasons = [];
   let score = 0;
-  const check = (fn, label, badLabel) => {
+  // key 를 함께 담아둡니다. 나중에 '지역이 안 맞는 사람은 빼기'처럼 조건을 걸 때
+  // 화면에 보이는 문구로 찾으면, 문구만 바꿔도 조용히 망가지기 때문입니다.
+  const check = (key, fn, label, badLabel) => {
     const s1 = fn(a, b), s2 = fn(b, a);
     score += s1 + s2;
-    if (s1 > 0 && s2 >= 0 || s2 > 0 && s1 >= 0) reasons.push({ ok: true, label });
-    else if (s1 < 0 || s2 < 0) reasons.push({ ok: false, label: badLabel });
+    if (s1 > 0 && s2 >= 0 || s2 > 0 && s1 >= 0) reasons.push({ key, ok: true, label });
+    else if (s1 < 0 || s2 < 0) reasons.push({ key, ok: false, label: badLabel });
   };
-  check(ageFit, '나이 조건 맞음', '나이 조건 안 맞음');
-  check(heightFit, '키 조건 맞음', '키 조건 안 맞음');
-  check(regionFit, '지역 맞음', '지역 안 맞음');
+  check('age', ageFit, '나이 조건 맞음', '나이 조건 안 맞음');
+  check('height', heightFit, '키 조건 맞음', '키 조건 안 맞음');
+  check('region', regionFit, '지역 맞음', '지역 안 맞음');
   const j1 = jobFit(a, b), j2 = jobFit(b, a);
   score += j1 + j2;
-  if (j1 < 0 || j2 < 0) reasons.push({ ok: false, label: '기피 직업 포함' });
-  else if (j1 > 0 || j2 > 0) reasons.push({ ok: true, label: '선호 직업' });
-  if (a.religion && b.religion && a.religion.slice(0, 2) === b.religion.slice(0, 2)) { score += 1; reasons.push({ ok: true, label: '같은 종교' }); }
+  if (j1 < 0 || j2 < 0) reasons.push({ key: 'job', ok: false, label: '기피 직업 포함' });
+  else if (j1 > 0 || j2 > 0) reasons.push({ key: 'job', ok: true, label: '선호 직업' });
+  if (a.religion && b.religion && a.religion.slice(0, 2) === b.religion.slice(0, 2)) { score += 1; reasons.push({ key: 'religion', ok: true, label: '같은 종교' }); }
   return { score, reasons };
+}
+
+// 어느 한쪽이라도 지역 조건이 어긋나는지
+function regionMismatch(x) {
+  return x.reasons.some(r => r.key === 'region' && !r.ok);
 }
 // 추천 상대를 몇 명까지 펼쳐 볼지. 다른 사람의 상세를 열면 다시 접힙니다.
 const RECO_FOLDED = 3, RECO_MAX = 20;
@@ -939,11 +946,22 @@ function renderRecoSection(c) {
   // 이미 거절 기록이 있는 상대는 추천에서 뺌
   const targets = DB.data.candidates.filter(t =>
     t.gender !== c.gender && !t.archived && !t.blacklisted && !activeMatchOf(t.id) && !rejectionsBetween(c.id, t.id).length);
-  const all = targets.map(t => Object.assign({ t }, matchScore(c, t)))
-    .filter(x => x.score > 0)
+  // 지역이 어긋나는 상대는 추천에서 뺍니다.
+  // 아무리 다른 조건이 좋아도 서로 오갈 수 없으면 소개가 성사되지 않아요.
+  // (한쪽이라도 희망 지역을 안 적었으면 '어긋난다'고 보지 않고 그대로 둡니다)
+  const scoredAll = targets.map(t => Object.assign({ t }, matchScore(c, t))).filter(x => x.score > 0);
+  const dropped = scoredAll.filter(regionMismatch).length;
+  const all = scoredAll
+    .filter(x => !regionMismatch(x))
     .sort((a, b) => b.score - a.score)
     .slice(0, RECO_MAX);
-  if (!all.length) return '';
+  if (!all.length) {
+    // 다 걸러졌으면 왜 비었는지는 알려줘야 합니다
+    return dropped
+      ? `<div class="d-section-title"><i class="ti ti-sparkles"></i> 추천 상대</div>
+         <p class="reco-none">조건이 맞는 분이 <b>${dropped}명</b> 있었지만 모두 지역이 어긋나 제외했어요.</p>`
+      : '';
+  }
   const scored = recoOpen ? all : all.slice(0, RECO_FOLDED);
   const rest = all.length - scored.length;
 
@@ -957,6 +975,7 @@ function renderRecoSection(c) {
   // 펼쳤을 때는 목록 자체에 스크롤을 주어, 상세 화면이 끝없이 길어지지 않게 합니다
   return `<div class="d-section-title"><i class="ti ti-sparkles"></i> 추천 상대
       <span class="c-meta" style="font-weight:500">${all.length}명</span></div>
+    ${dropped ? `<p class="reco-dropped"><i class="ti ti-map-pin-off"></i>지역이 안 맞는 ${dropped}명은 뺐어요</p>` : ''}
     <div class="reco-list${recoOpen ? ' scroll' : ''}">`
     + scored.map(x => `
     <div class="reco-item" data-rid="${x.t.id}">

@@ -867,6 +867,16 @@ button:focus-visible,
 /* ── 추천 상대 ──
    접혀 있을 때(3명)는 그냥 쌓이고, [더 보기]로 펼치면 목록 안에서 스크롤됩니다.
    접힌 상태까지 스크롤 상자로 만들면, 세 줄짜리 목록 위에서 손가락이 헛돌아요. */
+/* 지역 때문에 빠진 사람이 있으면 알려줍니다.
+   말없이 빼버리면 '왜 저 사람이 안 보이지?' 하고 헤매게 돼요. */
+.reco-dropped {
+  display:flex; align-items:center; gap:5px;
+  font-size:12.5px; color:var(--gray-mid); margin:0 0 var(--sp-2);
+}
+.reco-dropped i { font-size:14px; }
+.reco-none { font-size:14px; color:var(--gray); line-height:1.6; margin:0; }
+.reco-none b { color:var(--pink-dark); font-weight:700; }
+
 .reco-list { display:flex; flex-direction:column; gap:6px; }
 /* 이름 줄은 한 줄로 붙잡아 둡니다. 지역까지 길어지면 줄이 늘어나 카드가 들쭉날쭉해져요 */
 .reco-name { font-size:14.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
