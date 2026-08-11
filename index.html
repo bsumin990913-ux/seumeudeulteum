@@ -6,9 +6,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="스며들틈">
+<meta name="apple-mobile-web-app-title" content="썸메이트">
 <title>썸메이트 — 매칭 관리</title>
-<meta name="theme-color" content="#ff0050">
+<meta name="theme-color" content="#FD1569">
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
@@ -36,43 +36,72 @@
         <button class="icon-btn" id="backupBtn" title="데이터 백업"><i class="ti ti-download"></i></button>
       </div>
     </div>
+    <!-- 왼쪽은 '사람 수', 오른쪽은 '매칭 건수'. 세는 단위가 다르므로 선으로 갈라둡니다 -->
     <div class="stats-row" id="statsRow">
-      <div class="stat-box" data-stat="all"><div class="stat-num" id="statAll">0</div><div class="stat-label">전체</div></div>
-      <div class="stat-box" data-stat="exchanging"><div class="stat-num" id="statEx">0</div><div class="stat-label">사진교환</div></div>
-      <div class="stat-box" data-stat="some"><div class="stat-num" id="statSome">0</div><div class="stat-label">썸</div></div>
-      <div class="stat-box" data-stat="success"><div class="stat-num" id="statSuc">0</div><div class="stat-label">성사</div></div>
+      <button type="button" class="stat-box stat-solo" data-stat="all">
+        <span class="stat-num" id="statAll">0</span><span class="stat-label">전체 후보</span>
+      </button>
+      <div class="stat-divider" aria-hidden="true"></div>
+      <div class="stat-side">
+        <div class="stat-side-label">진행 중인 매칭</div>
+        <div class="stat-side-boxes">
+          <button type="button" class="stat-box" data-stat="exchanging"><span class="stat-num" id="statEx">0</span><span class="stat-label">사진교환</span></button>
+          <button type="button" class="stat-box" data-stat="some"><span class="stat-num" id="statSome">0</span><span class="stat-label">썸</span></button>
+          <button type="button" class="stat-box" data-stat="success"><span class="stat-num" id="statSuc">0</span><span class="stat-label">성사</span></button>
+        </div>
+      </div>
     </div>
   </header>
 
   <!-- ═══════════ 후보 뷰 ═══════════ -->
   <main class="view active" id="view-candidates">
     <div class="search-bar">
-      <i class="ti ti-search"></i>
+      <i class="ti ti-search" aria-hidden="true"></i>
+      <label class="sr-only" for="searchInput">후보 검색</label>
       <input type="search" id="searchInput" placeholder="이름, 직업, 지역, 특징 검색">
     </div>
-    <div class="filter-row" id="genderChips">
-      <button class="chip active" data-g="all">전체</button>
-      <button class="chip" data-g="m">남자</button>
-      <button class="chip" data-g="f">여자</button>
-      <button class="chip" data-g="__status" data-s="candidate">대기중</button>
-      <button class="chip" data-g="__status" data-s="matched">매칭중</button>
-      <button class="chip" data-g="__status" data-s="nopromo">홍보전</button>
-      <button class="chip" data-g="__status" data-s="promo">홍보완료</button>
-      <button class="chip" data-g="__status" data-s="blacklist">블랙리스트</button>
-    </div>
-    <div class="filter-selects">
-      <select class="mini-select" id="sortSelect">
-        <option value="latest">최신 등록순</option>
-        <option value="oldest">오래된 등록순</option>
-        <option value="young">나이 어린순</option>
-        <option value="old">나이 많은순</option>
+
+    <!-- 성별은 하나만 고르는 조건이라 붙어 있는 세그먼트로, -->
+    <div class="filter-bar">
+      <div class="seg" id="genderChips" role="group" aria-label="성별 고르기">
+        <button class="seg-btn active" data-g="all">전체</button>
+        <button class="seg-btn" data-g="m">남자</button>
+        <button class="seg-btn" data-g="f">여자</button>
+      </div>
+      <label class="sr-only" for="sortSelect">정렬 기준</label>
+      <!-- 좁은 화면에서 글자가 잘리지 않게 라벨은 짧게, 뜻은 title 로 -->
+      <select class="mini-select" id="sortSelect" title="정렬 기준">
+        <option value="latest">최신순</option>
+        <option value="oldest">오래된순</option>
+        <option value="young">어린순</option>
+        <option value="old">많은순</option>
         <option value="tall">키 큰순</option>
         <option value="short">키 작은순</option>
         <option value="name">이름순</option>
       </select>
-      <button class="view-toggle" id="selectToggle" title="여러 명 선택"><i class="ti ti-checkbox"></i></button>
-      <button class="view-toggle" id="viewToggle" title="보기 전환"><i class="ti ti-layout-grid"></i></button>
+      <button class="view-toggle" id="selectToggle" title="여러 명 선택" aria-label="여러 명 선택"><i class="ti ti-checkbox" aria-hidden="true"></i></button>
+      <button class="view-toggle" id="viewToggle" title="보기 전환" aria-label="목록·앨범 보기 전환"><i class="ti ti-layout-grid" aria-hidden="true"></i></button>
     </div>
+
+    <!-- 상태는 켰다 껐다 하는 조건이라 테두리형 토글로 모양을 갈라둡니다 -->
+    <div class="filter-block">
+      <span class="filter-label">상태</span>
+      <div class="chip-row" id="statusChips" role="group" aria-label="상태로 거르기">
+        <button class="chip toggle" data-s="candidate">대기중</button>
+        <button class="chip toggle" data-s="matched">매칭중</button>
+        <button class="chip toggle" data-s="archived">보류</button>
+        <button class="chip toggle" data-s="nopromo">홍보전</button>
+        <button class="chip toggle" data-s="promo">홍보완료</button>
+        <button class="chip toggle danger" data-s="blacklist">블랙리스트</button>
+      </div>
+    </div>
+
+    <!-- 지금 무엇으로 걸러 보고 있는지 알려주고, 한 번에 풀 수 있게 -->
+    <div class="filter-summary hidden" id="filterSummary">
+      <span class="filter-summary-text" id="filterSummaryText"></span>
+      <button class="filter-reset" id="filterResetBtn"><i class="ti ti-x" aria-hidden="true"></i>필터 해제</button>
+    </div>
+
     <div id="candidateList"></div>
   </main>
 
@@ -111,49 +140,49 @@
       <div class="form-section">
         <div class="form-section-title"><i class="ti ti-user"></i> 기본 정보</div>
         <div class="form-grid">
-          <div class="f-field"><label>이름 *</label><input id="fName" placeholder="예: 봄이"></div>
-          <div class="f-field"><label>성별 *</label>
-            <div class="gender-toggle">
+          <div class="f-field"><label for="fName">이름 *</label><input id="fName" placeholder="예: 봄이"></div>
+          <div class="f-field"><span class="f-label" id="genderLabel">성별 *</span>
+            <div class="gender-toggle" role="group" aria-labelledby="genderLabel">
               <button type="button" class="g-btn m" data-v="m" id="gBtnM">남자</button>
               <button type="button" class="g-btn f" data-v="f" id="gBtnF">여자</button>
             </div>
           </div>
-          <div class="f-field"><label>출생연도</label><input id="fBirth" placeholder="예: 1997" inputmode="numeric"></div>
-          <div class="f-field"><label>키 (cm)</label><input id="fHeight" placeholder="예: 160" inputmode="numeric"></div>
-          <div class="f-field"><label>체형</label><input id="fBody" placeholder="예: 마른체형"></div>
-          <div class="f-field full"><label>스레드 ID</label><input id="fThreads" placeholder="@somemate_love" autocapitalize="off" spellcheck="false"></div>
-          <div class="f-field"><label>연락처</label><input id="fPhone" type="tel" placeholder="010-0000-0000" inputmode="numeric" maxlength="13"></div>
-          <div class="f-field"><label>거주지</label><input id="fRegion" placeholder="예: 대구 북구"></div>
-          <div class="f-field"><label>직업</label><input id="fJob" placeholder="예: 간호사"></div>
-          <div class="f-field"><label>근무 형태</label><input id="fWork" placeholder="예: 평일 9to6 고정"></div>
-          <div class="f-field"><label>학력</label><input id="fEdu" placeholder="예: 전문대졸"></div>
-          <div class="f-field"><label>종교</label><input id="fReligion" placeholder="예: 기독교"></div>
-          <div class="f-field"><label>MBTI</label><input id="fMbti" placeholder="예: ISFP"></div>
+          <div class="f-field"><label for="fBirth">출생연도</label><input id="fBirth" placeholder="예: 1997" inputmode="numeric"></div>
+          <div class="f-field"><label for="fHeight">키 (cm)</label><input id="fHeight" placeholder="예: 160" inputmode="numeric"></div>
+          <div class="f-field"><label for="fBody">체형</label><input id="fBody" placeholder="예: 마른체형"></div>
+          <div class="f-field full"><label for="fThreads">스레드 ID</label><input id="fThreads" placeholder="@somemate_love" autocapitalize="off" spellcheck="false"></div>
+          <div class="f-field"><label for="fPhone">연락처</label><input id="fPhone" type="tel" placeholder="010-0000-0000" inputmode="numeric" maxlength="13"></div>
+          <div class="f-field"><label for="fRegion">거주지</label><input id="fRegion" placeholder="예: 대구 북구"></div>
+          <div class="f-field"><label for="fJob">직업</label><input id="fJob" placeholder="예: 간호사"></div>
+          <div class="f-field"><label for="fWork">근무 형태</label><input id="fWork" placeholder="예: 평일 9to6 고정"></div>
+          <div class="f-field"><label for="fEdu">학력</label><input id="fEdu" placeholder="예: 전문대졸"></div>
+          <div class="f-field"><label for="fReligion">종교</label><input id="fReligion" placeholder="예: 기독교"></div>
+          <div class="f-field"><label for="fMbti">MBTI</label><input id="fMbti" placeholder="예: ISFP"></div>
         </div>
       </div>
 
       <div class="form-section">
         <div class="form-section-title"><i class="ti ti-mood-smile"></i> 라이프스타일</div>
         <div class="form-grid">
-          <div class="f-field"><label>음주</label><input id="fDrink" placeholder="예: 월 1-2회"></div>
-          <div class="f-field"><label>흡연</label><input id="fSmoke" placeholder="예: 비흡연"></div>
-          <div class="f-field"><label>자차/면허</label><input id="fCar" placeholder="예: 자차 없음, 면허 있음"></div>
-          <div class="f-field"><label>취미 (쉼표 구분)</label><input id="fHobby" placeholder="예: 러닝, 필라테스, 독서"></div>
-          <div class="f-field full"><label>성격</label><textarea id="fPersonality" placeholder="본인 성격, 주변에서 보는 이미지"></textarea></div>
-          <div class="f-field full"><label>기타 특징 메모</label><textarea id="fDesc" placeholder="그 외 특이사항"></textarea></div>
+          <div class="f-field"><label for="fDrink">음주</label><input id="fDrink" placeholder="예: 월 1-2회"></div>
+          <div class="f-field"><label for="fSmoke">흡연</label><input id="fSmoke" placeholder="예: 비흡연"></div>
+          <div class="f-field"><label for="fCar">자차/면허</label><input id="fCar" placeholder="예: 자차 없음, 면허 있음"></div>
+          <div class="f-field"><label for="fHobby">취미 (쉼표 구분)</label><input id="fHobby" placeholder="예: 러닝, 필라테스, 독서"></div>
+          <div class="f-field full"><label for="fPersonality">성격</label><textarea id="fPersonality" placeholder="본인 성격, 주변에서 보는 이미지"></textarea></div>
+          <div class="f-field full"><label for="fDesc">기타 특징 메모</label><textarea id="fDesc" placeholder="그 외 특이사항"></textarea></div>
         </div>
       </div>
 
       <div class="form-section">
         <div class="form-section-title"><i class="ti ti-sparkles"></i> 이상형</div>
         <div class="form-grid">
-          <div class="f-field"><label>나이</label><input id="iAge" placeholder="예: 연하 2 ~ 연상 4 (연상선호)"></div>
-          <div class="f-field"><label>키</label><input id="iHeight" placeholder="예: 175cm 이상"></div>
-          <div class="f-field"><label>지역</label><input id="iRegion" placeholder="예: 대구 선호, 경북 가능"></div>
-          <div class="f-field"><label>중요 순위</label><input id="iPriority" placeholder="예: 성격 > 직업안정성 > 경제력"></div>
-          <div class="f-field"><label>선호 직업</label><input id="iJobsPref" placeholder="예: 소방관, 전문직, 공무원"></div>
-          <div class="f-field"><label>기피 직업</label><input id="iJobsAvoid" placeholder="예: 간호사, 자영업"></div>
-          <div class="f-field full"><label>기타 조건</label><textarea id="iNote" placeholder="예: 똑똑하고 다정다감하고 자상한 사람"></textarea></div>
+          <div class="f-field"><label for="iAge">나이</label><input id="iAge" placeholder="예: 연하 2 ~ 연상 4 (연상선호)"></div>
+          <div class="f-field"><label for="iHeight">키</label><input id="iHeight" placeholder="예: 175cm 이상"></div>
+          <div class="f-field"><label for="iRegion">지역</label><input id="iRegion" placeholder="예: 대구 선호, 경북 가능"></div>
+          <div class="f-field"><label for="iPriority">중요 순위</label><input id="iPriority" placeholder="예: 성격 > 직업안정성 > 경제력"></div>
+          <div class="f-field"><label for="iJobsPref">선호 직업</label><input id="iJobsPref" placeholder="예: 소방관, 전문직, 공무원"></div>
+          <div class="f-field"><label for="iJobsAvoid">기피 직업</label><input id="iJobsAvoid" placeholder="예: 간호사, 자영업"></div>
+          <div class="f-field full"><label for="iNote">기타 조건</label><textarea id="iNote" placeholder="예: 똑똑하고 다정다감하고 자상한 사람"></textarea></div>
         </div>
       </div>
 
@@ -285,7 +314,7 @@
 </div>
 
 <!-- ═══════════ 후보 상세 모달 ═══════════ -->
-<div class="modal-bg" id="detailModal">
+<div class="modal-bg" id="detailModal" role="dialog" aria-modal="true" aria-label="후보 상세">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div id="detailBody"></div>
@@ -293,7 +322,7 @@
 </div>
 
 <!-- ═══════════ 매칭 상세 모달 ═══════════ -->
-<div class="modal-bg" id="matchModal">
+<div class="modal-bg" id="matchModal" role="dialog" aria-modal="true" aria-label="매칭 상세">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div id="matchBody"></div>
@@ -301,7 +330,7 @@
 </div>
 
 <!-- ═══════════ 매칭 맺기 모달 ═══════════ -->
-<div class="modal-bg" id="createMatchModal">
+<div class="modal-bg" id="createMatchModal" role="dialog" aria-modal="true" aria-label="매칭 맺기">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="view-title" style="margin-bottom:4px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
@@ -325,7 +354,7 @@
 </div>
 
 <!-- ═══════════ 신청서 상세 모달 ═══════════ -->
-<div class="modal-bg" id="appModal">
+<div class="modal-bg" id="appModal" role="dialog" aria-modal="true" aria-label="신청서 상세">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div id="appBody"></div>
@@ -333,7 +362,7 @@
 </div>
 
 <!-- ═══════════ 오래된 신청서 정리 모달 ═══════════ -->
-<div class="modal-bg" id="purgeModal">
+<div class="modal-bg" id="purgeModal" role="dialog" aria-modal="true" aria-label="오래된 신청서 정리">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="view-title" style="margin-bottom:4px"><i class="ti ti-clock-exclamation"></i> 오래된 신청서 정리</div>
@@ -352,11 +381,15 @@
 </div>
 
 <!-- ═══════════ 후기 관리 모달 ═══════════ -->
-<div class="modal-bg" id="reviewModal">
+<div class="modal-bg" id="reviewModal" role="dialog" aria-modal="true" aria-label="후기 관리">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="view-title" style="margin-bottom:4px"><i class="ti ti-message-star"></i> 후기 관리</div>
     <p class="hint-text">캡처를 올리고 한 줄만 적으면 끝이에요.</p>
+
+    <!-- PC에서는 왼쪽에서 올리고 오른쪽에서 확인하도록 두 칸으로 나뉩니다 (style.css의 #reviewBody) -->
+    <div id="reviewBody">
+     <div class="rv-left">
 
     <!-- 숫자 스트립 (평소엔 접어둠) -->
     <button type="button" class="rvm-stats-toggle" id="rvStatsToggle">
@@ -366,7 +399,7 @@
     </button>
     <div class="rvm-box hidden" id="rvStatsBox">
       <p class="hint-text" style="margin-bottom:8px">기준 시점을 비우면 후기 페이지에서 스트립이 통째로 숨겨져요.</p>
-      <div class="f-field"><label>기준 시점</label><input id="rvStatLabel" placeholder="예: 2026년 8월"></div>
+      <div class="f-field"><label for="rvStatLabel">기준 시점</label><input id="rvStatLabel" placeholder="예: 2026년 8월"></div>
       <div style="height:8px"></div>
       <div class="rvm-stat-grid" id="rvStatRows"></div>
       <div style="height:10px"></div>
@@ -396,20 +429,24 @@
       </div>
       <button type="button" class="rvm-more-toggle" id="rvMoreToggle"><i class="ti ti-plus"></i> 누구인지 · 날짜 (선택)</button>
       <div class="form-grid hidden" id="rvMoreFields" style="margin-top:8px">
-        <div class="f-field"><label>누구인지 (익명 라벨)</label><input id="rvWho" placeholder="예: 96년생 · 여성 · 대구"></div>
-        <div class="f-field"><label>날짜</label><input id="rvDate" placeholder="예: 2026.07"></div>
+        <div class="f-field"><label for="rvWho">누구인지 (익명 라벨)</label><input id="rvWho" placeholder="예: 96년생 · 여성 · 대구"></div>
+        <div class="f-field"><label for="rvDate">날짜</label><input id="rvDate" placeholder="예: 2026.07"></div>
       </div>
       <div style="height:10px"></div>
       <button class="btn primary" id="rvAddBtn" disabled><i class="ti ti-upload"></i> 후기 올리기</button>
     </div>
 
-    <div class="d-section-title"><i class="ti ti-list"></i> 올린 후기 <span class="c-meta" style="font-weight:500" id="rvCount"></span></div>
-    <div id="rvList"></div>
+     </div>
+     <div class="rv-right">
+      <div class="d-section-title"><i class="ti ti-list"></i> 올린 후기 <span class="c-meta" style="font-weight:500" id="rvCount"></span></div>
+      <div id="rvList"></div>
+     </div>
+    </div>
   </div>
 </div>
 
 <!-- ═══════════ 거절 기록 모달 ═══════════ -->
-<div class="modal-bg" id="rejectModal">
+<div class="modal-bg" id="rejectModal" role="dialog" aria-modal="true" aria-label="거절 기록">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
     <div class="view-title" style="margin-bottom:4px" id="rejTitle"><i class="ti ti-heart-broken"></i> 거절 기록</div>
@@ -417,7 +454,7 @@
 
     <!-- 상대 고르기 (후보 상세에서 직접 추가할 때만 보임) -->
     <div id="rejPickWrap" class="hidden">
-      <div class="f-field"><label>상대는 누구인가요?</label></div>
+      <div class="f-field"><span class="f-label">상대는 누구인가요?</span></div>
       <div class="search-bar">
         <i class="ti ti-search"></i>
         <input type="search" id="rejSearch" placeholder="이름, 직업, 지역, 나이 검색">
@@ -426,11 +463,11 @@
       <div style="height:14px"></div>
     </div>
 
-    <div class="f-field"><label>누가 거절했나요?</label></div>
+    <div class="f-field"><span class="f-label">누가 거절했나요?</span></div>
     <div class="rej-who" id="rejWho"></div>
 
     <div style="height:14px"></div>
-    <div class="f-field"><label>어느 단계였나요?</label></div>
+    <div class="f-field"><span class="f-label">어느 단계였나요?</span></div>
     <div class="filter-row" id="rejStage">
       <button class="chip active" data-st="profile">프로필 보고</button>
       <button class="chip" data-st="photo">사진 교환 후</button>
@@ -438,7 +475,7 @@
       <button class="chip" data-st="after">만난 후</button>
     </div>
 
-    <div class="f-field"><label>사유 (선택)</label>
+    <div class="f-field"><label for="rejReason">사유 (선택)</label>
       <textarea id="rejReason" placeholder="예: 거리가 멀어서 부담된다고 하심"></textarea>
     </div>
     <div style="height:12px"></div>
@@ -448,8 +485,25 @@
   </div>
 </div>
 
+<!-- ═══════════ 확인 창 ═══════════
+     삭제·블랙리스트처럼 되돌리기 어려운 순간에 뜹니다.
+     브라우저 기본 confirm() 대신 쓰는, 앱과 같은 모양의 창이에요. -->
+<div class="modal-bg" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="cfTitle">
+  <div class="modal-sheet">
+    <div class="sheet-handle"></div>
+    <div class="cf-title" id="cfTitle"></div>
+    <p class="cf-desc" id="cfDesc"></p>
+    <div class="cf-list hidden" id="cfList"></div>
+    <p class="cf-warn hidden" id="cfWarn"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span id="cfWarnText"></span></p>
+    <div class="cf-actions">
+      <button class="btn ghost" id="cfCancelBtn">취소</button>
+      <button class="btn primary" id="cfOkBtn">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ 로그인 게이트 ═══════════ -->
-<div id="gate">
+<div id="gate" class="checking">
   <div class="gate-box">
     <svg width="72" height="72" viewBox="0 0 64 64" aria-hidden="true">
       <path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFD6E4"/>
@@ -459,14 +513,19 @@
     </svg>
     <div class="gate-title">썸메이트</div>
     <div class="gate-sub">관리자 로그인이 필요해요</div>
-    <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username">
-    <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
-    <p id="loginError" style="font-size:14px;color:#C13515;margin:-2px 0 10px;min-height:18px"></p>
+    <label class="sr-only" for="loginEmail">이메일</label>
+    <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username" inputmode="email">
+    <label class="sr-only" for="loginPw">비밀번호</label>
+    <div class="gate-pw">
+      <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
+      <button type="button" class="gate-pw-toggle" id="loginPwToggle" aria-label="비밀번호 보기"><i class="ti ti-eye" aria-hidden="true"></i></button>
+    </div>
+    <p id="loginError" role="alert" style="font-size:14px;color:#C13515;margin:10px 0;min-height:18px"></p>
     <button class="btn primary" id="loginBtn"><i class="ti ti-login-2"></i> 로그인</button>
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <!-- ═══════════ 사진 크게 보기 (라이트박스) ═══════════ -->
 <div id="lightbox" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
@@ -479,7 +538,7 @@
   <div class="lb-hint" id="lbHint">← → 키로 이동 · Esc 닫기</div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<!-- 엑셀 처리 모듈(약 900KB)은 [등록 → 엑셀]에서 실제로 쓸 때만 내려받습니다. app.js의 loadXlsx() -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <script src="app.js" defer></script>
 </body>

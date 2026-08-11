@@ -1,12 +1,13 @@
 {
-  "name": "스며들틈",
-  "short_name": "스며들틈",
-  "description": "스며들틈 모바일 웹앱",
+  "name": "썸메이트 관리",
+  "short_name": "썸메이트",
+  "description": "썸메이트 매칭 관리 도구",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ff0050",
+  "theme_color": "#FD1569",
+  "lang": "ko",
   "icons": [
     {
       "src": "/icons/icon-192.png",

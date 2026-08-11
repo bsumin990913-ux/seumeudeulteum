@@ -40,12 +40,17 @@ const SHOW_SUPPORT_LINK = false;
 
 const MAX_PHOTOS = 3;
 const MAX_FILE_MB = 8;         // 압축 전 원본 허용 크기
-const MIN_FILL_SECONDS = 8;    // 이보다 빨리 제출되면 자동 입력으로 봄
 const LAST_STEP = 6;
 
 let sb = null;
 const $ = id => document.getElementById(id);
-const openedAt = Date.now();
+
+// 사람이 실제로 폼을 만졌는지 세어 둡니다.
+// 예전에는 '페이지를 연 지 8초가 안 됐으면 자동 입력'으로 봤는데,
+// 임시저장을 불러온 분이 화면을 빠르게 넘겨서 8초 안에 끝내면
+// 신청서가 저장되지 않은 채로 완료 화면만 보였습니다. 최악의 경우였어요.
+// 이제 시간은 보지 않고, '아무 조작도 없었는지'와 숨은 칸(허니팟)만 봅니다.
+let humanTouches = 0;
 
 const TEXT_IDS = ['fName','fBirth','fHeight','fBody','fRegion','fJob','fWork','fEdu','fMbti','fReligion',
                   'fHobby','fPersonality','fDesc','iAge','iHeight','iRegion','iPriority','iJobsPref','iJobsAvoid','iNote',
@@ -142,9 +147,19 @@ function applyTestResults() {
 // ═══════════════════════════════════════
 //  단계 이동
 // ═══════════════════════════════════════
-function goStep(n) {
+function goStep(n, fromHistory) {
   S.step = Math.max(0, Math.min(LAST_STEP, n));
   document.querySelectorAll('.step').forEach(el => el.classList.toggle('on', +el.dataset.step === S.step));
+
+  // 휴대폰 뒤로가기로도 앞 단계로 돌아갈 수 있게 단계를 기록에 남깁니다.
+  // 예전에는 2단계에서 뒤로가기를 누르면 사이트 밖으로 나가버렸어요.
+  if (!fromHistory) {
+    try {
+      const cur = (history.state || {}).sdtStep;
+      if (cur === undefined) history.replaceState({ sdtStep: S.step }, '');
+      else if (cur !== S.step) history.pushState({ sdtStep: S.step }, '');
+    } catch (e) { }
+  }
 
   const done = S.step === LAST_STEP;
   $('backBtn').classList.toggle('hidden', S.step === 0 || done);
@@ -162,12 +177,26 @@ function goStep(n) {
   window.scrollTo({ top: 0, behavior: 'instant' in document.documentElement.style ? 'instant' : 'auto' });
 }
 
-// 다음 버튼 활성/비활성
+// 다음 버튼
+// 마지막 단계에서 버튼을 아예 못 누르게 막아두면, 왜 안 되는지 알 수가 없습니다.
+// (눌리지 않는 버튼은 눌러도 아무 반응이 없어서 고장 난 것처럼 보여요)
+// 그래서 항상 누를 수 있게 두고, 빠진 항목을 짚어주는 쪽으로 바꿨습니다.
 function syncNext() {
   const btn = $('nextBtn');
-  if (S.sending) { btn.disabled = true; return; }
-  if (S.step === 5) btn.disabled = !REQUIRED_CONSENT.every(k => S.consent[k]);
-  else btn.disabled = false;
+  btn.disabled = !!S.sending;
+  const need = S.step === 5 && !REQUIRED_CONSENT.every(k => S.consent[k]);
+  btn.classList.toggle('waiting', need);
+}
+
+// 빠뜨린 필수 동의를 짚어줍니다
+function showConsentMissing() {
+  const missing = REQUIRED_CONSENT.filter(k => !S.consent[k]);
+  document.querySelectorAll('#consentList .consent-row').forEach(r => {
+    r.classList.toggle('need', missing.includes(r.dataset.c));
+  });
+  toast(`필수 항목 ${missing.length}개에 동의가 필요해요`);
+  const first = document.querySelector('#consentList .consent-row.need');
+  if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 // 단계별 검사 — 통과하면 true
@@ -201,8 +230,10 @@ function validateStep() {
 //  임시 저장 (이 브라우저에만 저장됨)
 // ═══════════════════════════════════════
 const DRAFT_KEY = 'sdt_apply_draft';
+// 사진은 임시저장에 담지 않습니다. 제출 전에는 아직 아무 데도 올라가 있지 않고,
+// 이 브라우저 안에만 있기 때문이에요. 중간에 나갔다 오시면 다시 골라주셔야 합니다.
 function saveDraft() {
-  const d = { gender: S.gender, chips: S.chips, photos: S.photos, tests: S.tests, fields: {} };
+  const d = { gender: S.gender, chips: S.chips, tests: S.tests, fields: {} };
   TEXT_IDS.forEach(id => { d.fields[id] = val(id); });
   try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) { }
 }
@@ -213,7 +244,6 @@ function loadDraft() {
   TEXT_IDS.forEach(id => { if (d.fields && d.fields[id]) $(id).value = d.fields[id]; });
   if (d.gender) setGender(d.gender);
   if (d.chips) { Object.assign(S.chips, d.chips); syncChips(); }
-  if (Array.isArray(d.photos)) { S.photos = d.photos.slice(0, MAX_PHOTOS); renderPhotos(); }
   // 검사 결과는 주소창에 한 번만 실려 옵니다. 중간에 나갔다 그냥 /apply 로
   // 돌아온 사람에게서 결과가 사라지지 않도록 임시저장에도 같이 담아둡니다.
   if (d.tests && typeof d.tests === 'object') S.tests = d.tests;
@@ -235,7 +265,11 @@ function syncChips() {
   });
 }
 function syncConsent() {
-  document.querySelectorAll('#consentList .consent-row').forEach(r => r.classList.toggle('on', !!S.consent[r.dataset.c]));
+  document.querySelectorAll('#consentList .consent-row').forEach(r => {
+    r.classList.toggle('on', !!S.consent[r.dataset.c]);
+    if (S.consent[r.dataset.c]) r.classList.remove('need');
+    r.setAttribute('aria-pressed', S.consent[r.dataset.c] ? 'true' : 'false');
+  });
   const all = Object.keys(S.consent).every(k => S.consent[k]);
   $('cAll').classList.toggle('on', all);
   syncNext();
@@ -250,11 +284,11 @@ function renderPhotos() {
   S.photos.forEach((p, i) => {
     const d = document.createElement('div');
     d.className = 'photo';
-    d.innerHTML = `<img src="${p}" alt="올린 사진 ${i + 1}"><button type="button" class="photo-x" aria-label="사진 삭제">✕</button>`;
+    d.innerHTML = `<img src="${p.url}" alt="고른 사진 ${i + 1}"><button type="button" class="photo-x" aria-label="사진 삭제">✕</button>`;
     d.querySelector('.photo-x').addEventListener('click', () => {
+      URL.revokeObjectURL(p.url);
       S.photos.splice(i, 1);
       renderPhotos();
-      saveDraft();
     });
     box.insertBefore(d, $('photoAddBtn'));
   });
@@ -283,15 +317,20 @@ function compressImage(file) {
   });
 }
 
-async function uploadPhoto(file) {
+// 고를 때는 확인하고 줄이기만 합니다. 실제로 올리는 건 마지막 제출 때예요.
+async function pickPhoto(file) {
   if (file.size > MAX_FILE_MB * 1024 * 1024) { toast(`사진 한 장은 ${MAX_FILE_MB}MB까지 올릴 수 있어요`); return null; }
   const blob = await compressImage(file);
   if (!blob) { toast('이미지를 읽지 못했어요. 다른 사진으로 시도해 주세요'); return null; }
+  return { blob, url: URL.createObjectURL(blob) };   // url 은 이 브라우저 안에서만 쓰는 미리보기 주소
+}
+
+async function uploadPhoto(blob) {
   const path = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}.jpg`;
   const { error } = await sb.storage.from('apply').upload(path, blob, { contentType: 'image/jpeg' });
   if (error) {
     console.error('[Storage]', error);
-    toast('사진을 올리지 못했어요. 사진 없이도 신청할 수 있어요');
+    toast('사진을 올리지 못했어요. 사진 없이 접수됩니다');
     return null;
   }
   return sb.storage.from('apply').getPublicUrl(path).data.publicUrl;
@@ -323,7 +362,7 @@ function escapeHtml(s) {
 // ═══════════════════════════════════════
 //  제출
 // ═══════════════════════════════════════
-function buildPayload() {
+function buildPayload(photoUrls) {
   return {
     name: val('fName'),
     gender: S.gender,
@@ -351,7 +390,7 @@ function buildPayload() {
       jobs_avoid: val('iJobsAvoid'),
       note: val('iNote')
     },
-    photos: S.photos.slice(),
+    photos: (photoUrls || []).slice(),
     contact_threads: normThreads(val('fThreads')),
     contact_kakao: val('fKakao'),
     referral: val('fReferral'),
@@ -369,26 +408,42 @@ function isMissingColumn(error, column) {
 
 async function submit() {
   if (S.sending) return;
-  if (!REQUIRED_CONSENT.every(k => S.consent[k])) { toast('필수 항목에 모두 동의해 주세요'); return; }
+  if (!REQUIRED_CONSENT.every(k => S.consent[k])) { showConsentMissing(); return; }
 
-  // 자동 입력 프로그램 거르기 — 사람에게는 아무 표시도 하지 않고 완료 화면만 보여줌
-  const looksAutomated = !!val('company') || (Date.now() - openedAt) / 1000 < MIN_FILL_SECONDS;
-  if (looksAutomated) { clearDraft(); goStep(LAST_STEP); return; }
+  // 자동 입력 프로그램 거르기 — 사람에게는 아무 표시도 하지 않고 완료 화면만 보여줌.
+  // 사람 눈에 보이지 않는 칸(company)이 채워져 있거나, 화면을 한 번도 만지지 않고
+  // 제출까지 온 경우만 걸러냅니다. '너무 빨라서' 거르지는 않습니다 —
+  // 진짜 신청자를 놓치는 쪽이 스팸 한 건을 받는 것보다 훨씬 큰 손해라서요.
+  const looksAutomated = !!val('company') || humanTouches === 0;
+  if (looksAutomated) {
+    console.warn('[자동 입력으로 판단해 접수하지 않았습니다]');
+    clearDraft(); goStep(LAST_STEP); return;
+  }
 
   S.sending = true;
   const btn = $('nextBtn');
   btn.disabled = true;
+
+  // 사진은 여기서 올립니다. 고르자마자 올리지 않는 이유는,
+  // 마지막 동의 단계까지 오지 않고 나가신 분의 사진이 동의도 기록도 없이
+  // 저장소에 남는 걸 막기 위해서입니다.
+  btn.textContent = S.photos.length ? '사진을 올리는 중…' : '신청서를 보내는 중…';
+  const photoUrls = [];
+  for (const p of S.photos) {
+    const url = await uploadPhoto(p.blob);
+    if (url) photoUrls.push(url);
+  }
   btn.textContent = '신청서를 보내는 중…';
 
   // 익명 방문자는 읽기 권한이 없으므로 .select() 없이 넣기만 합니다.
-  let { error } = await sb.from('applications').insert(buildPayload());
+  let { error } = await sb.from('applications').insert(buildPayload(photoUrls));
 
   // test_results 칸이 아직 없는 상태(upgrade_v8.sql 미실행)에서도 신청은 받아야 합니다.
   // 검사 결과 하나 때문에 접수가 통째로 막히는 건 말이 안 됩니다.
   // 그 칸만 빼고 한 번 더 넣고, 결과는 유입 경로 칸에 글자로 남깁니다.
   if (error && isMissingColumn(error, 'test_results')) {
     console.warn('[연동] test_results 칸이 없어요 — database/upgrade_v8.sql 을 실행해 주세요');
-    const fallback = buildPayload();
+    const fallback = buildPayload(photoUrls);
     delete fallback.test_results;
     const summary = testSummaryText();
     if (summary) fallback.referral = [fallback.referral, `(${summary})`].filter(Boolean).join(' ');
@@ -407,6 +462,8 @@ async function submit() {
     return;
   }
   clearDraft();
+  S.photos.forEach(p => URL.revokeObjectURL(p.url));
+  S.photos = [];
   goStep(LAST_STEP);
 }
 
@@ -449,11 +506,10 @@ function init() {
     const files = [...e.target.files];
     e.target.value = '';
     if (!files.length) return;
-    toast('사진을 올리는 중이에요…');
     for (const f of files) {
-      if (S.photos.length >= MAX_PHOTOS) { toast(`사진은 ${MAX_PHOTOS}장까지 올릴 수 있어요`); break; }
-      const url = await uploadPhoto(f);
-      if (url) { S.photos.push(url); renderPhotos(); saveDraft(); }
+      if (S.photos.length >= MAX_PHOTOS) { toast(`사진은 ${MAX_PHOTOS}장까지 고를 수 있어요`); break; }
+      const p = await pickPhoto(f);
+      if (p) { S.photos.push(p); renderPhotos(); }
     }
   });
 
@@ -479,7 +535,23 @@ function init() {
     if (!validateStep()) return;
     goStep(S.step + 1);
   });
-  $('backBtn').addEventListener('click', () => goStep(S.step - 1));
+  $('backBtn').addEventListener('click', () => history.back());
+
+  // 사람이 실제로 만졌는지 세어 둡니다 (자동 입력 거르기용).
+  // 손가락·마우스뿐 아니라 키보드와 화면낭독기로 조작하는 분도 반드시 잡히도록
+  // click 과 input 까지 함께 봅니다. 하나라도 있으면 사람으로 봅니다.
+  ['pointerdown', 'keydown', 'click', 'input'].forEach(ev => {
+    document.addEventListener(ev, () => { humanTouches++; }, { passive: true, capture: true });
+  });
+
+  // 뒤로가기 / 앞으로가기
+  window.addEventListener('popstate', e => {
+    // 접수가 끝난 뒤에는 폼으로 되돌리지 않습니다 (같은 신청서를 두 번 보내게 되니까요).
+    // 완료 화면을 그대로 두고, 한 번 더 누르시면 사이트를 나가게 됩니다.
+    if (S.step === LAST_STEP) return;
+    const st = (e.state || {}).sdtStep;
+    goStep(typeof st === 'number' ? st : 0, true);
+  });
 
   // 문의처 안내 — CONTACT를 채우기 전에는 처리방침 쪽으로 안내
   const bits = [];

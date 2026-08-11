@@ -18,9 +18,97 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
 }
 const nowStr = () => new Date().toISOString();
+
+// 로그인이 풀려서 실패한 것인지 (토큰 만료 등) 판별합니다.
+// 이걸 구분하지 않으면 "인터넷 연결을 확인해 주세요"만 반복해서 뜨는데,
+// 정작 인터넷은 멀쩡하고 다시 로그인해야 하는 상황이라 아무리 눌러도 저장이 안 됩니다.
+function isAuthErr(e) {
+  if (!e) return false;
+  const msg = String(e.message || '');
+  return e.status === 401 || e.code === 'PGRST301' || /jwt|token|expired|not authenticated/i.test(msg);
+}
 function dbErr(e) {
   console.error('[DB]', e);
+  if (isAuthErr(e)) { requireLogin(); return; }
   toast('저장에 실패했어요. 인터넷 연결을 확인해 주세요');
+}
+
+// 사진 한 장을 안전한 <img> 로 만듭니다.
+// 주소에 따옴표가 섞여 들어와도 태그가 깨지지 않고, 목록에서는 보이는 것부터 받습니다.
+function photoImg(url, alt, cls) {
+  return `<img${cls ? ` class="${cls}"` : ''} src="${escHtml(url)}" alt="${escHtml(alt || '')}" loading="lazy" decoding="async">`;
+}
+
+// 값이 있을 때만 괄호를 붙여줍니다. 직업 없이 근무형태만 있으면 ' (평일 9to6)' 처럼
+// 앞이 텅 빈 줄이 생기던 것을 막습니다.
+function joinParen(main, paren) {
+  const m = (main || '').trim(), p = (paren || '').trim();
+  if (!m) return p;
+  return p ? `${m} (${p})` : m;
+}
+// 직업 줄. 직업을 안 적고 근무 형태만 적은 경우에는 '근무 형태'라는 제 이름으로 보여줍니다.
+function jobRows(o) {
+  const job = (o.job || '').trim(), work = (o.work_pattern || '').trim();
+  return job
+    ? infoRow('briefcase', '직업', joinParen(job, work))
+    : infoRow('clock-hour-9', '근무 형태', work);
+}
+
+// ═══════════════════════════════════════
+//  확인 창 — 브라우저 기본 confirm() 대신
+// ═══════════════════════════════════════
+// 삭제·블랙리스트처럼 되돌리기 어려운 순간에 씁니다.
+//   if (!await ask({ title:'삭제할까요?', desc:'...', okText:'삭제', danger:true })) return;
+function ask(opt) {
+  const o = opt || {};
+  return new Promise(resolve => {
+    $('cfTitle').textContent = o.title || '진행할까요?';
+    $('cfDesc').textContent = o.desc || '';
+    $('cfDesc').classList.toggle('hidden', !o.desc);
+
+    // 이름 목록처럼 여러 줄로 보여줄 내용은 회색 칸에 따로 담습니다
+    $('cfList').textContent = o.list || '';
+    $('cfList').classList.toggle('hidden', !o.list);
+
+    $('cfWarnText').textContent = o.warn || '';
+    $('cfWarn').classList.toggle('hidden', !o.warn);
+
+    const ok = $('cfOkBtn'), cancel = $('cfCancelBtn');
+    ok.innerHTML = o.okText ? escHtml(o.okText) : '확인';
+    ok.className = 'btn ' + (o.danger ? 'danger-solid' : 'primary');
+    cancel.textContent = o.cancelText || '취소';
+
+    const done = v => {
+      ok.onclick = null; cancel.onclick = null;
+      $('confirmModal').removeEventListener('modal-dismiss', onDismiss);
+      closeModal('confirmModal');
+      resolve(v);
+    };
+    const onDismiss = () => done(false);
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+    // 배경 누르기 · Esc · 아래로 끌어내리기로 닫아도 '취소'로 봅니다
+    $('confirmModal').addEventListener('modal-dismiss', onDismiss, { once: true });
+
+    openModal('confirmModal');
+    setTimeout(() => ok.focus(), 60);
+  });
+}
+
+// ── 엑셀 모듈은 쓸 때만 내려받기 ──
+// 900KB 짜리를 모든 방문에서 받을 이유가 없습니다. [등록 → 엑셀] 에서만 씁니다.
+let xlsxLoading = null;
+function loadXlsx() {
+  if (typeof XLSX !== 'undefined') return Promise.resolve(true);
+  if (xlsxLoading) return xlsxLoading;
+  xlsxLoading = new Promise(resolve => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = () => resolve(true);
+    sc.onerror = () => { xlsxLoading = null; resolve(false); };
+    document.head.appendChild(sc);
+  });
+  return xlsxLoading;
 }
 
 // ═══════════════════════════════════════
@@ -152,6 +240,13 @@ const DB = {
     return true;
   },
 
+  // 백업 복원 때만 씁니다 (신청 폼으로 들어오는 것은 apply.js 가 직접 넣습니다)
+  async addApplication(row) {
+    const { data, error } = await sb.from('applications').insert(row).select().single();
+    if (error) { console.error('[DB] 신청서 복원 실패', error); return null; }
+    this.data.applications.unshift(data);
+    return data;
+  },
   async updateApplication(id, patch) {
     const { data, error } = await sb.from('applications').update(patch).eq('id', id).select().single();
     if (error) { dbErr(error); return null; }
@@ -174,11 +269,12 @@ const DB = {
   },
 
   // ── 후기 ──
-  async addReview(row) {
+  // quiet: 백업 복원처럼 여러 건을 연달아 넣을 때는 토스트를 띄우지 않습니다
+  async addReview(row, quiet) {
     const { data, error } = await sb.from('reviews').insert(row).select().single();
     if (error) {
       console.error('[DB] 후기 저장 실패', error);
-      toast(/relation|does not exist/i.test(error.message || '')
+      if (!quiet) toast(/relation|does not exist/i.test(error.message || '')
         ? '후기 테이블이 아직 없어요. upgrade_v7.sql을 실행해 주세요'
         : '후기를 저장하지 못했어요');
       return null;
@@ -246,9 +342,6 @@ const S = {
   formPhotos: [],
   matchFilter: 'all',
   appFilter: 'pending',
-  appDetailId: null,
-  detailId: null,
-  matchDetailId: null,
   pick: { m: null, f: null },
   pickSearch: '',
   excelRows: null
@@ -497,10 +590,34 @@ function parseProfile(text) {
 // ═══════════════════════════════════════
 function renderStats() {
   const ms = DB.data.matches;
-  $('statAll').textContent = DB.data.candidates.length;
-  $('statEx').textContent = ms.filter(m => m.status === 'exchanging').length;
-  $('statSome').textContent = ms.filter(m => m.status === 'some').length;
-  $('statSuc').textContent = ms.filter(m => m.status === 'success').length;
+  // '전체 후보'는 목록에서 실제로 볼 수 있는 사람 수입니다.
+  // 블랙리스트는 목록에서 숨겨지므로 여기서도 빼야 숫자와 화면이 어긋나지 않습니다.
+  const visible = DB.data.candidates.filter(c => !c.blacklisted).length;
+  const ex = ms.filter(m => m.status === 'exchanging').length;
+  const some = ms.filter(m => m.status === 'some').length;
+  const suc = ms.filter(m => m.status === 'success').length;
+  $('statAll').textContent = visible;
+  $('statEx').textContent = ex;
+  $('statSome').textContent = some;
+  $('statSuc').textContent = suc;
+  // 눈으로는 선으로 갈라뒀지만, 소리로 듣는 분에게도 단위를 알려줍니다
+  const aria = (sel, txt) => { const el = document.querySelector(sel); if (el) el.setAttribute('aria-label', txt); };
+  aria('[data-stat="all"]', `전체 후보 ${visible}명 보기`);
+  aria('[data-stat="exchanging"]', `사진교환 중인 매칭 ${ex}건 보기`);
+  aria('[data-stat="some"]', `썸 단계 매칭 ${some}건 보기`);
+  aria('[data-stat="success"]', `성사된 매칭 ${suc}건 보기`);
+  syncStatActive();
+}
+
+// 지금 보고 있는 화면·필터에 맞춰 어느 칸이 켜져 있는지 표시합니다
+function syncStatActive() {
+  document.querySelectorAll('.stat-box').forEach(box => {
+    const st = box.dataset.stat;
+    const on = st === 'all'
+      ? (S.view === 'candidates' && !S.statusFilter)
+      : (S.view === 'matches' && S.matchFilter === st);
+    box.classList.toggle('active', on);
+  });
 }
 
 function filteredCandidates() {
@@ -511,6 +628,7 @@ function filteredCandidates() {
     if (S.statusFilter === 'blacklist') { if (!c.blacklisted) return false; }
     else if (c.blacklisted) return false;
     if (S.statusFilter === 'candidate' && candStatus(c) !== 'candidate') return false;
+    if (S.statusFilter === 'archived' && !c.archived) return false;
     if (S.statusFilter === 'matched' && !activeMatchOf(c.id)) return false;
     if (S.statusFilter === 'promo' && !c.promo_url) return false;
     if (S.statusFilter === 'nopromo' && c.promo_url) return false;
@@ -539,28 +657,82 @@ function filteredCandidates() {
   return list;
 }
 
-function emptyHtml(text, sub) {
+function emptyHtml(text, sub, action) {
   return `<div class="empty">
     <svg width="64" height="64" viewBox="0 0 64 64"><path d="M32 6C48 6 58 18 58 34C58 50 46 58 32 58C18 58 6 50 6 34C6 18 16 6 32 6Z" fill="#FFE9F1"/><circle cx="24" cy="30" r="3" fill="#FD1569"/><circle cx="40" cy="30" r="3" fill="#FD1569"/><path d="M26 42Q32 38 38 42" stroke="#FD1569" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>
     <p class="empty-text">${escHtml(text)}</p>
     <p class="empty-sub">${escHtml(sub)}</p>
+    ${action ? `<button class="empty-action" id="${action.id}"><i class="ti ti-${action.icon || 'x'}"></i>${escHtml(action.label)}</button>` : ''}
   </div>`;
 }
 
 function avatarHtml(c, cls) {
   const photo = c.photos && c.photos[0];
-  const inner = photo ? `<img src="${photo}" alt="">` : `<i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>`;
+  const inner = photo ? photoImg(photo, '') : `<i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>`;
   return `<div class="${cls} ${c.gender === 'm' ? 'male' : ''}">${inner}</div>`;
+}
+
+// ── 지금 걸려 있는 필터 ──
+const STATUS_FILTER_LABEL = {
+  candidate: '대기중', matched: '매칭중', archived: '보류',
+  nopromo: '홍보전', promo: '홍보완료', blacklist: '블랙리스트'
+};
+const GENDER_LABEL = { m: '남자', f: '여자' };
+
+function activeFilters() {
+  const out = [];
+  if (S.gender !== 'all') out.push(GENDER_LABEL[S.gender]);
+  if (S.statusFilter) out.push(STATUS_FILTER_LABEL[S.statusFilter] || S.statusFilter);
+  if (S.search) out.push(`"${S.search}"`);
+  return out;
+}
+
+// 필터가 하나라도 걸려 있으면 무엇으로 걸러 보고 있는지 한 줄로 알려줍니다.
+// 검색어를 지웠는데 목록이 비어 있어서 당황하는 일을 줄이려는 장치예요.
+function renderFilterSummary(shown) {
+  const f = activeFilters();
+  const bar = $('filterSummary');
+  bar.classList.toggle('hidden', !f.length);
+  if (!f.length) return;
+  $('filterSummaryText').innerHTML =
+    `<b>${escHtml(f.join(' · '))}</b>로 거른 결과 ${shown}명`;
+}
+
+function resetFilters() {
+  S.gender = 'all';
+  S.statusFilter = null;
+  S.search = '';
+  $('searchInput').value = '';
+  syncFilterChips();
+  renderCandidates();
+}
+
+// 화면의 칩·세그먼트를 지금 상태에 맞춰 다시 칠합니다
+function syncFilterChips() {
+  document.querySelectorAll('#genderChips .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.g === S.gender));
+  document.querySelectorAll('#statusChips .chip').forEach(c => {
+    const on = c.dataset.s === S.statusFilter;
+    c.classList.toggle('active', on);
+    c.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  syncStatActive();
 }
 
 function renderCandidates() {
   const box = $('candidateList');
   const list = filteredCandidates();
+  renderFilterSummary(list.length);
   if (!list.length) {
-    box.innerHTML = emptyHtml(
-      S.search ? `"${S.search}" 검색 결과가 없어요` : '아직 등록된 후보가 없어요',
-      S.search ? '다른 검색어를 시도해 보세요' : '아래 + 버튼으로 첫 후보를 등록해 보세요'
-    );
+    const filtered = activeFilters().length;
+    box.innerHTML = filtered
+      ? emptyHtml(
+          '조건에 맞는 후보가 없어요',
+          `${activeFilters().join(' · ')} 조건으로는 아무도 나오지 않았어요`,
+          { id: 'emptyResetBtn', label: '필터 해제하고 전체 보기', icon: 'x' })
+      : emptyHtml('아직 등록된 후보가 없어요', '아래 + 버튼으로 첫 후보를 등록해 보세요');
+    const rb = $('emptyResetBtn');
+    if (rb) rb.onclick = resetFilters;
+    syncBulkBar();
     return;
   }
   const pinned = Pin.get();
@@ -574,7 +746,7 @@ function renderCandidates() {
       return `<div class="a-card ${pinned.includes(c.id) ? 'pinned' : ''} ${selCls(c)}" data-id="${c.id}">
         ${selTick(c)}
         <div class="a-photo ${c.gender === 'm' ? 'male' : ''}">
-          ${photo ? `<img src="${photo}" alt="">` : `<i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>`}
+          ${photo ? photoImg(photo, c.name + ' 사진') : `<i class="ti ti-${c.gender === 'm' ? 'leaf' : 'flower'}"></i>`}
           <span class="badge ${st}">${STATUS_LABEL[st]}</span>
           ${promoTag(c)}
           ${pinned.includes(c.id) ? '<i class="ti ti-star-filled pin-star"></i>' : ''}
@@ -638,7 +810,11 @@ async function bulkBlacklist() {
   const ids = [...S.selected];
   if (!ids.length) return;
   const names = ids.slice(0, 5).map(candName).join(', ') + (ids.length > 5 ? ` 외 ${ids.length - 5}명` : '');
-  if (!confirm(`${ids.length}명을 블랙리스트에 등록할까요?\n\n${names}\n\n후보 목록·추천·매칭 상대에서 제외됩니다.`)) return;
+  if (!await ask({
+    title: `${ids.length}명을 블랙리스트에 등록할까요?`,
+    desc: '후보 목록·추천·매칭 상대에서 제외됩니다. 나중에 되돌릴 수 있어요.',
+    list: names, okText: '블랙리스트 등록', danger: true
+  })) return;
   if (!(await DB.updateCandidates(ids, { blacklisted: true }))) return;
   setSelectMode(false);
   renderAll();
@@ -649,7 +825,11 @@ async function bulkDelete() {
   const ids = [...S.selected];
   if (!ids.length) return;
   const names = ids.slice(0, 5).map(candName).join(', ') + (ids.length > 5 ? ` 외 ${ids.length - 5}명` : '');
-  if (!confirm(`${ids.length}명을 완전히 삭제할까요?\n\n${names}\n\n연결된 매칭·거절 기록도 함께 삭제되고, 되돌릴 수 없습니다.`)) return;
+  if (!await ask({
+    title: `${ids.length}명을 완전히 삭제할까요?`,
+    desc: '연결된 매칭·거절 기록과 사진도 함께 삭제됩니다.',
+    list: names, warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+  })) return;
   if (!(await DB.deleteCandidates(ids))) return;
   setSelectMode(false);
   renderAll();
@@ -767,7 +947,7 @@ const Gal = {
   html(photos) {
     return `<div class="d-gallery ${photos.length > 1 ? '' : 'single'}">
       <div class="d-track" id="galTrack">
-        ${photos.map((p, i) => `<img src="${p}" data-pi="${i}" alt="사진 ${i + 1}">`).join('')}
+        ${photos.map((p, i) => `<img src="${escHtml(p)}" data-pi="${i}" alt="사진 ${i + 1}" decoding="async">`).join('')}
       </div>
       <button class="gal-nav prev" id="galPrev" aria-label="이전 사진"><i class="ti ti-chevron-left"></i></button>
       <button class="gal-nav next" id="galNext" aria-label="다음 사진"><i class="ti ti-chevron-right"></i></button>
@@ -1095,7 +1275,6 @@ function openDetail(id, keepTrail) {
   const c = candOf(id);
   if (!c) return;
   if (!keepTrail) Trail.clear();
-  S.detailId = id;
   const st = candStatus(c);
   const pinnedNow = Pin.has(id);
   const photos = c.photos || [];
@@ -1135,7 +1314,7 @@ function openDetail(id, keepTrail) {
       <table class="info-table">
         ${threadsRow(c.contact_threads)}
         ${infoRow('phone', '연락처', c.phone)}
-        ${infoRow('briefcase', '직업', c.job + (c.work_pattern ? ` (${c.work_pattern})` : ''))}
+        ${jobRows(c)}
         ${infoRow('school', '학력', c.education)}
         ${infoRow('building-church', '종교', c.religion)}
         ${infoRow('puzzle', 'MBTI', c.mbti)}
@@ -1217,7 +1396,11 @@ function openDetail(id, keepTrail) {
   $('dPhotoBtn').onclick = () => downloadPhoto(c);
   $('dEditBtn').onclick = () => { closeModal('detailModal'); startEdit(id); };
   $('dDelBtn').onclick = async () => {
-    if (!confirm(`'${c.name}' 후보를 삭제할까요?\n연결된 매칭 기록도 함께 삭제됩니다.`)) return;
+    if (!await ask({
+      title: `'${c.name}' 후보를 삭제할까요?`,
+      desc: '연결된 매칭 기록과 사진도 함께 삭제됩니다.',
+      warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+    })) return;
     if (!(await DB.deleteCandidate(id))) return;
     closeModal('detailModal');
     renderAll();
@@ -1230,7 +1413,11 @@ function openDetail(id, keepTrail) {
     renderCandidates();
   };
   $('dBlacklistBtn').onclick = async () => {
-    if (!c.blacklisted && !confirm(`'${c.name}' 님을 블랙리스트에 등록할까요?\n후보 목록·추천·매칭 상대에서 제외됩니다.`)) return;
+    if (!c.blacklisted && !await ask({
+      title: `'${c.name}' 님을 블랙리스트에 등록할까요?`,
+      desc: '후보 목록·추천·매칭 상대에서 제외됩니다. 블랙리스트 필터에서 다시 볼 수 있어요.',
+      okText: '블랙리스트 등록', danger: true
+    })) return;
     const r = await DB.updateCandidate(id, { blacklisted: !c.blacklisted });
     if (!r) return;
     toast(c.blacklisted ? '블랙리스트에서 해제했어요' : '블랙리스트에 등록했어요');
@@ -1276,7 +1463,7 @@ function openDetail(id, keepTrail) {
   $('detailBody').querySelectorAll('.rej-del').forEach(btn => {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
-      if (!confirm('이 거절 기록을 삭제할까요?')) return;
+      if (!await ask({ title: '이 거절 기록을 삭제할까요?', okText: '삭제', danger: true })) return;
       if (!(await DB.deleteRejection(parseInt(btn.dataset.rdel, 10)))) return;
       openDetail(id, true);
       toast('기록이 삭제되었어요');
@@ -1310,7 +1497,7 @@ function copyProfile(c) {
   if (c.birth_year) L.push(`나이: ${c.birth_year}년생`);
   if (c.height) L.push(`키: ${c.height}cm${c.body_type ? ` (${c.body_type})` : ''}`);
   if (c.region) L.push(`거주지: ${c.region}`);
-  if (c.job) L.push(`직업: ${c.job}${c.work_pattern ? ` (${c.work_pattern})` : ''}`);
+  if (c.job || c.work_pattern) L.push(`직업: ${joinParen(c.job, c.work_pattern)}`);
   if (c.education) L.push(`학력: ${c.education}`);
   if (c.religion) L.push(`종교: ${c.religion}`);
   if (c.mbti) L.push(`MBTI: ${c.mbti}`);
@@ -1510,7 +1697,7 @@ function renderFormPhotos() {
   S.formPhotos.forEach((p, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'photo-thumb-wrap' + (i === 0 ? ' main' : '');
-    wrap.innerHTML = `<img class="photo-thumb" src="${p}" alt="">
+    wrap.innerHTML = `<img class="photo-thumb" src="${escHtml(p)}" alt="">
       <button type="button" class="photo-move l" title="앞으로" ${i === 0 ? 'disabled' : ''}><i class="ti ti-chevron-left"></i></button>
       <button type="button" class="photo-move r" title="뒤로" ${i === n - 1 ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button>
       <button type="button" class="photo-del" title="삭제"><i class="ti ti-x"></i></button>
@@ -1620,8 +1807,9 @@ function downloadTemplate() {
   toast('양식 파일이 저장되었어요');
 }
 
-function handleExcelFile(file) {
-  if (typeof XLSX === 'undefined') return toast('엑셀 처리 모듈을 불러오지 못했어요. 인터넷 연결을 확인해 주세요');
+async function handleExcelFile(file) {
+  toast('엑셀 파일을 읽는 중…');
+  if (!(await loadXlsx())) return toast('엑셀 처리 모듈을 불러오지 못했어요. 인터넷 연결을 확인해 주세요');
   const reader = new FileReader();
   reader.onload = e => {
     try {
@@ -1707,12 +1895,12 @@ function renderMatches() {
     return `<div class="m-card" data-mid="${m.id}">
       <div class="m-pair">
         <div class="m-person">
-          <div class="m-avatar">${mc && mc.photos && mc.photos[0] ? `<img src="${mc.photos[0]}">` : '<i class="ti ti-leaf"></i>'}</div>
+          <div class="m-avatar">${mc && mc.photos && mc.photos[0] ? photoImg(mc.photos[0], '') : '<i class="ti ti-leaf"></i>'}</div>
           <div style="min-width:0"><div class="m-name">${escHtml(candName(m.male_id))}</div><div class="m-meta">${mc ? escHtml([ageLabel(mc), mc.job].filter(Boolean).join(' · ')) : ''}</div></div>
         </div>
         <i class="ti ti-heart m-heart"></i>
         <div class="m-person right">
-          <div class="m-avatar f">${fc && fc.photos && fc.photos[0] ? `<img src="${fc.photos[0]}">` : '<i class="ti ti-flower"></i>'}</div>
+          <div class="m-avatar f">${fc && fc.photos && fc.photos[0] ? photoImg(fc.photos[0], '') : '<i class="ti ti-flower"></i>'}</div>
           <div style="min-width:0"><div class="m-name">${escHtml(candName(m.female_id))}</div><div class="m-meta">${fc ? escHtml([ageLabel(fc), fc.job].filter(Boolean).join(' · ')) : ''}</div></div>
         </div>
       </div>
@@ -1750,7 +1938,7 @@ function renderTimeline(m) {
 function matchPersonHtml(c, cid, side) {
   const photo = c && c.photos && c.photos[0];
   const icon = side === 'f' ? 'flower' : 'leaf';
-  const inner = photo ? `<img src="${escHtml(photo)}" alt="">` : `<i class="ti ti-${icon}"></i>`;
+  const inner = photo ? photoImg(photo, '') : `<i class="ti ti-${icon}"></i>`;
   const meta = c ? escHtml([ageLabel(c), c.job, c.region].filter(Boolean).join(' · ')) : '';
   return `<button type="button" class="m-person" data-open-cand="${cid}" ${c ? '' : 'disabled'}>
     <div class="m-avatar ${side === 'f' ? 'f' : ''}">${inner}</div>
@@ -1767,7 +1955,6 @@ function openMatchDetail(id, keepTrail) {
   const m = DB.data.matches.find(x => x.id === id);
   if (!m) return;
   if (!keepTrail) Trail.clear();
-  S.matchDetailId = id;
   const mc = candOf(m.male_id), fc = candOf(m.female_id);
   const steps = ['exchanging', 'some', 'success', 'ended'];
   $('matchBody').innerHTML = `
@@ -1828,7 +2015,11 @@ function openMatchDetail(id, keepTrail) {
     toast('메모가 저장되었어요');
   };
   $('matchDelBtn').onclick = async () => {
-    if (!confirm('이 매칭 기록을 삭제할까요?')) return;
+    if (!await ask({
+      title: '이 매칭 기록을 삭제할까요?',
+      desc: '진행 타임라인과 메모가 함께 사라집니다. 거절 기록은 그대로 남아요.',
+      warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+    })) return;
     if (!(await DB.deleteMatch(id))) return;
     closeModal('matchModal');
     renderAll();
@@ -1853,8 +2044,12 @@ function renderPickLists() {
   const render = (gender, boxId) => {
     const box = $(boxId);
     const list = DB.data.candidates.filter(c => {
-      if (c.gender !== gender || c.archived || c.blacklisted) return false;
-      if (S.pick[gender] === c.id) return true; // 이미 고른 사람은 검색어와 무관하게 계속 보여줌
+      if (c.gender !== gender) return false;
+      // 이미 고른 사람은 검색어·보류·블랙리스트와 무관하게 계속 보여줍니다.
+      // (추천이나 후보 상세에서 바로 넘어온 경우, 목록에 안 보이는데 선택만 돼 있으면
+      //  '누구를 고른 건지 모르는 채로' 매칭 버튼이 켜져 버립니다)
+      if (S.pick[gender] === c.id) return true;
+      if (c.archived || c.blacklisted) return false;
       if (q) {
         const hay = [c.name, c.job, c.region].filter(Boolean).join(' ').toLowerCase();
         if (!hay.includes(q)) return false;
@@ -1891,8 +2086,10 @@ function renderPickLists() {
         : s >= 6 ? '<span class="fit-tag best">잘 맞음</span>'
         : s >= 1 ? '<span class="fit-tag ok">조건 맞음</span>'
         : s <= -1 ? '<span class="fit-tag bad">안 맞음</span>' : '';
+      // 보류·블랙리스트인데 이미 골라져 있는 경우에는 그 사실을 알려줍니다
+      const off = c.blacklisted ? '블랙리스트' : c.archived ? '보류 중' : '';
       return `<div class="pick-item ${sel ? 'sel' : ''} ${gender === 'f' ? 'f-side' : ''}" data-pid="${c.id}">
-        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:12.5px;color:var(--orange)"></i>' : ''}${fitTag}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}
+        ${escHtml(c.name)}${busy ? ' <i class="ti ti-heart" style="font-size:12.5px;color:var(--orange)"></i>' : ''}${fitTag}${rej ? '<span class="rej-tag">거절 이력</span>' : ''}${off ? `<span class="rej-tag">${off}</span>` : ''}
         <span class="sub">${escHtml([ageLabel(c), c.job].filter(Boolean).join(' · '))}${busy ? ' · 매칭 진행중' : ''}</span>
       </div>`;
     }).join('');
@@ -1915,10 +2112,18 @@ async function createMatch() {
   const rejs = rejectionsBetween(S.pick.m, S.pick.f);
   if (rejs.length) {
     const lines = rejs.map(r => `· ${candName(r.from_id)}님이 ${candName(r.to_id)}님을 거절 (${rejectLabel(r)})${r.reason ? `\n   "${r.reason}"` : ''}`).join('\n');
-    if (!confirm(`이 두 분은 이미 거절 이력이 있어요.\n\n${lines}\n\n그래도 이어줄까요?`)) return;
+    if (!await ask({
+      title: '이 두 분은 이미 거절 이력이 있어요',
+      desc: '그래도 이어줄까요?',
+      list: lines, okText: '그래도 이어주기'
+    })) return;
   }
   const busyM = activeMatchOf(S.pick.m), busyF = activeMatchOf(S.pick.f);
-  if ((busyM || busyF) && !confirm('이미 진행 중인 매칭이 있는 후보가 포함돼 있어요. 그래도 이어줄까요?')) return;
+  if ((busyM || busyF) && !await ask({
+    title: '진행 중인 매칭이 있어요',
+    desc: '두 분 중 이미 다른 분과 매칭이 진행 중인 후보가 있습니다. 그래도 이어줄까요?',
+    okText: '그래도 이어주기'
+  })) return;
   const btn = $('createMatchBtn');
   btn.disabled = true;
   const m = await DB.addMatch(S.pick.m, S.pick.f);
@@ -1979,7 +2184,7 @@ function renderApplications() {
       </div>
       <div class="app-meta">${escHtml([a.gender === 'm' ? '남자' : '여자', a.birth_year ? a.birth_year + '년생' : '', a.height ? a.height + 'cm' : '', a.job, a.region].filter(Boolean).join(' · '))}</div>
       ${a.contact_threads || a.phone ? `<div class="app-sub">${escHtml(a.contact_threads || a.phone)}</div>` : ''}
-      ${photos.length ? `<div class="app-thumbs">${photos.slice(0, 3).map(p => `<img src="${p}" alt="">`).join('')}</div>` : ''}
+      ${photos.length ? `<div class="app-thumbs">${photos.slice(0, 3).map(p => photoImg(p, '')).join('')}</div>` : ''}
     </div>`;
   }).join('');
   box.querySelectorAll('[data-aid]').forEach(el => {
@@ -1990,13 +2195,15 @@ function renderApplications() {
 function openAppDetail(id) {
   const a = DB.data.applications.find(x => x.id === id);
   if (!a) return;
-  S.appDetailId = id;
   const photos = a.photos || [];
   const ideal = a.ideal || {};
   const consent = a.consent || {};
   const linked = a.candidate_id ? candOf(a.candidate_id) : null;
 
+  // 후보 상세와 같은 규칙으로 두 덩어리로 나눕니다.
+  // 휴대폰에서는 위아래로 쌓이고, PC에서는 왼쪽 프로필 / 오른쪽 검토로 갈라집니다. (style.css의 #appBody)
   $('appBody').innerHTML = `
+   <div class="a-main">
     ${photos.length ? Gal.html(photos) : `<div class="d-nophoto"><i class="ti ti-photo-off"></i>사진을 올리지 않았어요</div>`}
     <div class="d-head">
       <span class="d-name">${escHtml(a.name)}</span>
@@ -2010,7 +2217,7 @@ function openAppDetail(id) {
       ${infoRow('brand-hipchat', '카카오톡', a.contact_kakao)}
       ${infoRow('clock', '접수', String(a.created_at).slice(0, 16).replace('T', ' '))}
       ${infoRow('route', '유입 경로', a.referral)}
-      ${infoRow('briefcase', '직업', a.job + (a.work_pattern ? ` (${a.work_pattern})` : ''))}
+      ${jobRows(a)}
       ${infoRow('school', '학력', a.education)}
       ${infoRow('building-church', '종교', a.religion)}
       ${infoRow('puzzle', 'MBTI', a.mbti)}
@@ -2036,7 +2243,9 @@ function openAppDetail(id) {
         ${infoRow('message-heart', '기타', ideal.note)}
       </table>
     </div>` : ''}
+   </div>
 
+   <div class="a-side">
     <div class="d-section-title"><i class="ti ti-shield-check"></i> 동의 내역</div>
     <div class="consent-view">
       ${Object.keys(CONSENT_LABEL).map(k => `<span class="${consent[k] ? '' : 'no'}">${consent[k] ? '✓' : '✕'} ${CONSENT_LABEL[k]}</span>`).join('')}
@@ -2061,6 +2270,7 @@ function openAppDetail(id) {
     <button class="btn soft" id="appMemoSaveBtn"><i class="ti ti-check"></i> 메모만 저장</button>
     <div style="height:8px"></div>
     <button class="btn danger-soft" id="appDelBtn"><i class="ti ti-trash"></i> 신청서 삭제</button>
+   </div>
   `;
 
   Gal.mount(photos);
@@ -2072,7 +2282,11 @@ function openAppDetail(id) {
   if (approveBtn) approveBtn.onclick = () => approveApplication(a);
   if (rejectBtn) rejectBtn.onclick = async () => {
     const memo = $('appMemo').value.trim();
-    if (!confirm(`'${a.name}' 신청서를 반려할까요?\n후보로 등록되지 않습니다.`)) return;
+    if (!await ask({
+      title: `'${a.name}' 신청서를 반려할까요?`,
+      desc: '후보로 등록되지 않습니다. 나중에 대기 상태로 되돌릴 수 있어요.',
+      okText: '반려'
+    })) return;
     if (!(await DB.updateApplication(id, { status: 'rejected', review_memo: memo, reviewed_at: nowStr() }))) return;
     openAppDetail(id);
     renderAll();
@@ -2088,7 +2302,11 @@ function openAppDetail(id) {
     toast('대기 상태로 되돌렸어요');
   };
   $('appDelBtn').onclick = async () => {
-    if (!confirm(`'${a.name}' 신청서를 완전히 삭제할까요?\n이미 후보로 등록된 경우 후보는 남습니다.`)) return;
+    if (!await ask({
+      title: `'${a.name}' 신청서를 완전히 삭제할까요?`,
+      desc: '이미 후보로 등록된 경우 후보 정보는 그대로 남습니다.',
+      warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+    })) return;
     if (!(await DB.deleteApplication(id))) return;
     closeModal('appModal');
     renderAll();
@@ -2175,7 +2393,11 @@ const Purge = {
     const targets = DB.data.applications.filter(a => ids.includes(a.id));
     const names = targets.slice(0, 5).map(a => a.name).join(', ');
     const more = targets.length > 5 ? ` 외 ${targets.length - 5}명` : '';
-    if (!confirm(`신청서 ${ids.length}건을 삭제할까요?\n\n${names}${more}\n\n되돌릴 수 없습니다.`)) return;
+    if (!await ask({
+      title: `신청서 ${ids.length}건을 삭제할까요?`,
+      desc: '후보로 등록된 분의 후보 정보와 사진은 그대로 남습니다.',
+      list: names + more, warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+    })) return;
 
     // 승인된 신청서는 후보와 사진 주소를 공유하므로, 후보가 쓰는 사진은 남겨둠
     const inUse = new Set();
@@ -2209,7 +2431,11 @@ async function approveApplication(a) {
   if (a.status !== 'pending') return;
   const dupe = DB.data.candidates.find(c => c.name === a.name && c.gender === a.gender
     && (a.contact_threads ? c.contact_threads === a.contact_threads : a.phone ? c.phone === a.phone : true));
-  if (dupe && !confirm(`'${a.name}'님과 같은 이름의 후보가 이미 있어요.\n그래도 새로 등록할까요?`)) return;
+  if (dupe && !await ask({
+    title: `'${a.name}'님과 같은 이름의 후보가 이미 있어요`,
+    desc: '같은 분이라면 신청서를 반려하고 기존 후보를 수정하는 편이 깔끔해요. 그래도 새로 등록할까요?',
+    okText: '새로 등록'
+  })) return;
 
   // 아직 저장 안 한 검토 메모도 함께 넘김
   const memo = $('appMemo') ? $('appMemo').value.trim() : (a.review_memo || '');
@@ -2387,7 +2613,11 @@ const Rev = {
   async add() {
     if (!this.shot || this.busy) return;
     const note = $('rvNote').value.trim();
-    if (!note && !confirm('주선자 코멘트 없이 올릴까요?\n\n캡처만 있으면 "감사 인사 모음"으로 보이고,\n코멘트가 있어야 "신경 써주는 곳"으로 읽혀요.')) return;
+    if (!note && !await ask({
+      title: '주선자 코멘트 없이 올릴까요?',
+      desc: '캡처만 있으면 "감사 인사 모음"으로 보이고, 한 줄이라도 코멘트가 있어야 "신경 써주는 곳"으로 읽혀요.',
+      okText: '그냥 올리기'
+    })) return;
     this.busy = true;
     this.syncAdd();
     const top = DB.data.reviews.reduce((mx, r) => Math.max(mx, r.sort_order || 0), 0);
@@ -2473,7 +2703,11 @@ const Rev = {
       toast(r.published ? '후기 페이지에서 숨겼어요' : '후기 페이지에 다시 올렸어요');
     };
     el.querySelector('[data-rvdel]').onclick = async () => {
-      if (!confirm('이 후기를 삭제할까요?\n캡처 파일도 함께 지워지고, 되돌릴 수 없습니다.')) return;
+      if (!await ask({
+        title: '이 후기를 삭제할까요?',
+        desc: '캡처 파일도 함께 지워집니다.',
+        warn: '되돌릴 수 없습니다', okText: '삭제', danger: true
+      })) return;
       if (!(await DB.deleteReview(id))) return;
       this.renderList();
       toast('후기를 삭제했어요');
@@ -2537,10 +2771,26 @@ const Rev = {
     const i = list.findIndex(r => r.id === id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= list.length) return;
-    // sort_order가 서로 같은 경우에도 확실히 자리가 바뀌도록, 목록 전체에 번호를 새로 매깁니다
-    const order = list.map(r => r.id);
-    [order[i], order[j]] = [order[j], order[i]];
-    await Promise.all(order.map((rid, k) => DB.updateReview(rid, { sort_order: order.length - k })));
+
+    // 번호가 서로 겹치거나 비어 있으면 자리를 바꿔도 순서가 그대로일 수 있습니다.
+    // 그럴 때만 전체에 번호를 새로 매기고, 평소에는 두 건만 맞바꿉니다.
+    // (후기가 쉰 건이면 예전에는 화살표 한 번에 쉰 번을 저장했습니다)
+    const nums = list.map(r => r.sort_order || 0);
+    const messy = new Set(nums).size !== nums.length || nums.some(n => !n);
+
+    const btnBusy = this.busy;
+    this.busy = true;
+    if (messy) {
+      const order = list.map(r => r.id);
+      [order[i], order[j]] = [order[j], order[i]];
+      await Promise.all(order.map((rid, k) => DB.updateReview(rid, { sort_order: order.length - k })));
+    } else {
+      await Promise.all([
+        DB.updateReview(list[i].id, { sort_order: nums[j] }),
+        DB.updateReview(list[j].id, { sort_order: nums[i] })
+      ]);
+    }
+    this.busy = btnBusy;
     this.renderList();
   }
 };
@@ -2553,7 +2803,11 @@ const Rev = {
 async function migratePhotosToStorage() {
   const targets = DB.data.candidates.filter(c => (c.photos || []).some(p => String(p).startsWith('data:')));
   if (!targets.length) return toast('이전할 사진이 없어요. 모두 최신 상태예요!');
-  if (!confirm(`${targets.length}명의 사진을 클라우드 스토리지로 옮길까요?\n(DB가 가벼워지고 로딩이 빨라져요)`)) return;
+  if (!await ask({
+    title: `${targets.length}명의 사진을 스토리지로 옮길까요?`,
+    desc: '데이터베이스가 가벼워지고 목록 로딩이 빨라집니다. 사진은 그대로 보입니다.',
+    okText: '옮기기'
+  })) return;
   toast('사진 이전 중… 잠시만요');
   let done = 0, fail = 0;
   for (const c of targets) {
@@ -2580,6 +2834,18 @@ function exportData() {
   a.click();
   URL.revokeObjectURL(a.href);
   toast('백업 파일이 저장되었어요');
+}
+
+// 백업 파일에 무엇이 들어 있는지 한눈에 (복원 전 확인 창에 그대로 보여줍니다)
+function summarizeDataset(d) {
+  const n = k => (Array.isArray(d[k]) ? d[k].length : 0);
+  return [
+    `후보 ${n('candidates')}명`,
+    `매칭 ${n('matches')}건`,
+    `거절 기록 ${n('rejections')}건`,
+    `신청서 ${n('applications')}건`,
+    `후기 ${n('reviews')}건`
+  ].join('\n');
 }
 
 // 백업 데이터를 서버에 업로드 (id 재발급 + 매칭 연결 유지)
@@ -2616,7 +2882,36 @@ async function uploadDataset(dataset) {
     const saved = await DB.addRejections(rejRows);
     addedR = saved ? saved.length : 0;
   }
-  return { added, addedM, addedR };
+
+  // ── 신청서 ──
+  // 예전에는 백업 파일에 담아 내보내기만 하고 복원은 하지 않아서,
+  // '복원 완료'라고 해놓고 신청서와 후기가 조용히 사라졌습니다.
+  let addedA = 0;
+  for (const a of (dataset.applications || [])) {
+    const row = { ...a };
+    delete row.id; delete row.created_at;
+    // 후보 쪽 번호가 새로 발급됐으므로 연결도 새 번호로 바꿔줍니다
+    row.candidate_id = idMap[a.candidate_id] || null;
+    if (await DB.addApplication(row)) addedA++;
+  }
+
+  // ── 후기 ──
+  let addedRv = 0;
+  for (const rv of (dataset.reviews || [])) {
+    const row = { ...rv };
+    delete row.id; delete row.created_at; delete row.updated_at;
+    if (await DB.addReview(row, true)) addedRv++;
+  }
+
+  // ── 숫자 스트립 ──
+  // 지금 채워둔 숫자가 있으면 건드리지 않습니다. 덮어써서 잃는 쪽이 더 아프니까요.
+  const st = dataset.stats;
+  const cur = DB.data.stats;
+  if (st && st.updated_label && !(cur && cur.updated_label)) {
+    await DB.saveStats({ updated_label: st.updated_label, items: st.items || [] });
+  }
+
+  return { added, addedM, addedR, addedA, addedRv };
 }
 
 function importData(file) {
@@ -2625,11 +2920,17 @@ function importData(file) {
     try {
       const d = JSON.parse(e.target.result);
       if (!Array.isArray(d.candidates)) throw new Error('형식 오류');
-      if (!confirm(`백업에 후보 ${d.candidates.length}명, 매칭 ${(d.matches || []).length}건, 거절 기록 ${(d.rejections || []).length}건이 있어요.\n서버의 기존 데이터에 추가(병합)합니다. 진행할까요?`)) return;
+      if (!await ask({
+        title: '백업 파일을 복원할까요?',
+        desc: '서버에 있는 지금 데이터는 그대로 두고, 백업 내용을 뒤에 덧붙입니다(병합).',
+        list: summarizeDataset(d),
+        warn: '이미 있는 사람도 다시 추가되어 같은 이름이 두 번 생길 수 있어요',
+        okText: '복원'
+      })) return;
       toast('복원 중… 잠시만요');
       const r = await uploadDataset(d);
       renderAll();
-      toast(`복원 완료: 후보 ${r.added}명, 매칭 ${r.addedM}건, 거절 ${r.addedR}건 추가`);
+      toast(`복원 완료: 후보 ${r.added}명 · 매칭 ${r.addedM}건 · 거절 ${r.addedR}건 · 신청서 ${r.addedA}건 · 후기 ${r.addedRv}건`);
     } catch (err) {
       console.error(err);
       toast('백업 파일을 읽지 못했어요');
@@ -2648,7 +2949,11 @@ async function maybeMigrateLocal() {
     return;
   }
   if (DB.data.candidates.length) { localStorage.setItem('sdt_migrated_v1', '1'); return; }
-  if (confirm(`이 브라우저에 저장돼 있던 예전 데이터(후보 ${local.candidates.length}명)를 발견했어요.\n클라우드로 옮길까요?`)) {
+  if (await ask({
+    title: '예전 데이터를 발견했어요',
+    desc: `이 브라우저에 저장돼 있던 후보 ${local.candidates.length}명을 클라우드로 옮길까요?`,
+    okText: '옮기기'
+  })) {
     toast('데이터 이전 중… 잠시만요');
     const r = await uploadDataset(local);
     toast(`이전 완료: 후보 ${r.added}명, 매칭 ${r.addedM}건`);
@@ -2682,7 +2987,9 @@ async function doLogin() {
 }
 
 async function enterApp() {
+  loginRequired = false;
   $('gate').classList.add('hidden');
+  $('gate').classList.remove('checking');
   $('candidateList').innerHTML = '<div class="empty"><p class="empty-text">데이터를 불러오는 중…</p></div>';
   try {
     const { data: { user } } = await sb.auth.getUser();
@@ -2702,20 +3009,83 @@ async function enterApp() {
 function switchView(view) {
   S.view = view;
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
-  document.querySelectorAll('.bottom-nav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  // 등록(가운데 + 버튼)도 하나의 화면입니다. 예전에는 .nav-item 만 칠해서
+  // 등록 화면에 들어가면 아래 다섯 칸이 전부 회색이 되어 지금 어디인지 알 수 없었어요.
+  document.querySelectorAll('.bottom-nav [data-view]').forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
   syncBulkBar();   // 후보 탭을 벗어나면 일괄 작업 바 숨김
+  syncStatActive();
   window.scrollTo(0, 0);
 }
 
-function openModal(id) { $(id).classList.add('open'); }
-function closeModal(id) { $(id).classList.remove('open'); }
+// ── 모달 열고 닫기 ──
+// 열려 있는 창을 순서대로 기억해 둡니다. 하나라도 열려 있으면
+// 뒤 배경(목록)이 같이 스크롤되지 않게 body를 잠급니다.
+const modalStack = [];
+let modalLastFocus = null;
+
+function openModal(id) {
+  const el = $(id);
+  if (!el || el.classList.contains('open')) return;
+  if (!modalStack.length) modalLastFocus = document.activeElement;
+  modalStack.push(id);
+  el.classList.add('open');
+  document.body.classList.add('modal-open');
+  // 창이 열리면 읽기 시작점을 창 안으로 옮겨줍니다 (키보드·스크린리더)
+  const sheet = el.querySelector('.modal-sheet');
+  if (sheet) { sheet.setAttribute('tabindex', '-1'); sheet.scrollTop = 0; sheet.focus({ preventScroll: true }); }
+}
+
+function closeModal(id) {
+  const el = $(id);
+  if (!el || !el.classList.contains('open')) return;
+  el.classList.remove('open');
+  const i = modalStack.lastIndexOf(id);
+  if (i > -1) modalStack.splice(i, 1);
+  if (!modalStack.length) {
+    document.body.classList.remove('modal-open');
+    if (modalLastFocus && document.contains(modalLastFocus)) modalLastFocus.focus({ preventScroll: true });
+    modalLastFocus = null;
+  }
+}
 
 // 사용자가 직접 닫은 경우(배경 누르기 · Esc · 아래로 끌어내리기).
 // 화면 사이를 오갈 때 쓰는 closeModal과 달리, 여기서는 지나온 발자국도 함께 지웁니다.
 function dismissModal(bg) {
   if (!bg) return;
-  bg.classList.remove('open');
+  closeModal(bg.id);
+  bg.dispatchEvent(new CustomEvent('modal-dismiss'));   // 확인 창은 이걸 '취소'로 받습니다
   if (bg.id === 'detailModal' || bg.id === 'matchModal') Trail.clear();
+}
+
+// 창 안에서만 Tab이 돌게 잡아둡니다. 안 그러면 뒤에 가려진 목록으로 포커스가 새어 나갑니다.
+function trapTab(e) {
+  if (!modalStack.length || e.key !== 'Tab') return;
+  const top = $(modalStack[modalStack.length - 1]);
+  if (!top) return;
+  const items = [...top.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => el.offsetParent !== null);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !top.contains(document.activeElement))) {
+    last.focus(); e.preventDefault();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    first.focus(); e.preventDefault();
+  }
+}
+
+// 로그인이 풀렸을 때 — 게이트를 다시 띄웁니다
+let loginRequired = false;
+function requireLogin() {
+  if (loginRequired) return;
+  loginRequired = true;
+  modalStack.slice().forEach(closeModal);
+  $('gate').classList.remove('hidden', 'checking');
+  $('loginError').textContent = '로그인이 만료되었어요. 다시 로그인해 주세요';
+  toast('로그인이 만료되었어요');
 }
 
 function renderAll() {
@@ -2742,12 +3112,18 @@ async function init() {
     });
   });
 
-  // 통계 박스
+  // 통계 박스 — 왼쪽은 후보 목록으로, 오른쪽 세 칸은 그 상태의 매칭 목록으로
   document.querySelectorAll('.stat-box').forEach(box => {
     box.addEventListener('click', () => {
       const st = box.dataset.stat;
-      if (st === 'all') { S.statusFilter = null; switchView('candidates'); }
-      else {
+      if (st === 'all') {
+        // 필터를 풀었으면 목록도 다시 그려야 합니다. 예전에는 상태만 바꾸고
+        // 다시 그리지 않아서, 칩은 눌린 채로 남고 화면은 그대로였어요.
+        S.statusFilter = null;
+        syncFilterChips();
+        switchView('candidates');
+        renderCandidates();
+      } else {
         S.matchFilter = st;
         document.querySelectorAll('#matchChips .chip').forEach(c => c.classList.toggle('active', c.dataset.ms === st));
         switchView('matches');
@@ -2758,19 +3134,25 @@ async function init() {
 
   // 검색 / 필터
   $('searchInput').addEventListener('input', e => { S.search = e.target.value.trim(); renderCandidates(); });
-  document.querySelectorAll('#genderChips .chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      if (chip.dataset.g === '__status') {
-        const s = chip.dataset.s;
-        S.statusFilter = S.statusFilter === s ? null : s;
-        document.querySelectorAll('#genderChips .chip[data-g="__status"]').forEach(c => c.classList.toggle('active', c.dataset.s === S.statusFilter));
-      } else {
-        S.gender = chip.dataset.g;
-        document.querySelectorAll('#genderChips .chip:not([data-g="__status"])').forEach(c => c.classList.toggle('active', c.dataset.g === S.gender));
-      }
+  // 성별 — 하나만 고르는 조건
+  document.querySelectorAll('#genderChips .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.gender = btn.dataset.g;
+      syncFilterChips();
       renderCandidates();
     });
   });
+  // 상태 — 한 번 더 누르면 해제되는 토글
+  document.querySelectorAll('#statusChips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const s = chip.dataset.s;
+      S.statusFilter = S.statusFilter === s ? null : s;
+      syncFilterChips();
+      renderCandidates();
+    });
+  });
+  $('filterResetBtn').addEventListener('click', resetFilters);
+  syncFilterChips();   // 시작할 때 칩 상태를 한 번 맞춰둡니다
   $('sortSelect').value = S.sort;
   $('sortSelect').addEventListener('change', e => {
     S.sort = e.target.value;
@@ -2942,7 +3324,17 @@ async function init() {
 
   // 로그인 / 로그아웃
   $('loginBtn').addEventListener('click', doLogin);
-  $('loginPw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  // 이메일 칸에서 Enter를 눌러도 넘어가게 (예전에는 비밀번호 칸에서만 됐습니다)
+  ['loginEmail', 'loginPw'].forEach(id => {
+    $(id).addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  });
+  $('loginPwToggle').addEventListener('click', () => {
+    const pw = $('loginPw'), show = pw.type === 'password';
+    pw.type = show ? 'text' : 'password';
+    $('loginPwToggle').innerHTML = `<i class="ti ti-eye${show ? '-off' : ''}" aria-hidden="true"></i>`;
+    $('loginPwToggle').setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+    pw.focus();
+  });
   $('logoutBtn').addEventListener('click', async () => {
     await sb.auth.signOut();
     location.reload();
@@ -2987,6 +3379,8 @@ async function init() {
 
   // ── 키보드: ← → 이동, Esc 닫기, Home/End 처음·끝 ──
   document.addEventListener('keydown', e => {
+    // 창이 열려 있는 동안에는 Tab이 창 밖으로 새어 나가지 않게 잡아둡니다
+    if (!LB.isOpen()) trapTab(e);
     if (LB.isOpen()) {
       if (e.key === 'Escape') LB.close();
       else if (e.key === 'ArrowLeft') LB.go(-1);
@@ -3045,9 +3439,16 @@ async function init() {
     sheet.addEventListener('touchcancel', endDrag);
   });
 
-  // 세션 확인 후 시작
+  // 로그인이 풀리면(토큰 만료·다른 기기에서 로그아웃) 바로 게이트를 다시 띄웁니다
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || (!session && event === 'TOKEN_REFRESHED')) requireLogin();
+  });
+
+  // 세션 확인 후 시작 — 확인이 끝날 때까지 로그인 상자를 잠깐 감춰둡니다
+  // (로그인돼 있는데도 로그인 화면이 번쩍이는 걸 막습니다)
   const { data: { session } } = await sb.auth.getSession();
   if (session) await enterApp();
+  else $('gate').classList.remove('checking');
 }
 
 document.addEventListener('DOMContentLoaded', init);

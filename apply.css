@@ -145,7 +145,10 @@ input.bad, textarea.bad { border-color:var(--error); }
 }
 .consent-all.on { border-color:var(--accent); background:var(--tint); }
 .consent-all .t { font-size:18px; font-weight:700; letter-spacing:-.7px; }
-.consent-row { display:flex; align-items:center; gap:12px; padding:14px 16px; width:100%; text-align:left; }
+.consent-row { display:flex; align-items:center; gap:12px; padding:14px 16px; width:100%; text-align:left; border-radius:var(--r-action); }
+/* 제출할 때 빠뜨린 필수 항목을 짚어줍니다 */
+.consent-row.need { background:#fff5f5; box-shadow:inset 0 0 0 1px var(--error); }
+.consent-row.need .tick { border-color:var(--error); }
 .consent-row .t { flex:1; font-size:17px; font-weight:400; color:var(--secondary); line-height:1.4; }
 .consent-row .t em { font-style:normal; font-weight:700; color:var(--fg); }
 .consent-row .t .must { color:var(--accent); font-weight:700; }
@@ -176,6 +179,8 @@ input.bad, textarea.bad { border-color:var(--error); }
   display:flex; align-items:center; justify-content:center; gap:6px; transition:opacity .15s;
 }
 .action:disabled { background:var(--line); color:var(--muted); cursor:not-allowed; }
+/* 아직 동의가 남은 상태. 누를 수는 있고, 누르면 무엇이 빠졌는지 알려줍니다 */
+.action.waiting { background:var(--tint); color:var(--accent); }
 .action.ghost { background:var(--canvas); color:var(--secondary); border:1px solid var(--field); }
 
 /* ── 완료 화면 ── */

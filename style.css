@@ -52,9 +52,34 @@ body {
   word-break:keep-all;       /* 한글이 한 글자씩 떨어져 줄바꿈되는 것 방지 */
   overflow-wrap:break-word;
 }
+/* 모달이 열려 있는 동안 뒤 배경이 따라 움직이지 않게 함 (app.js 가 붙였다 뗍니다) */
+body.modal-open { overflow:hidden; }
 button { font-family:inherit; cursor:pointer; border:none; background:none; }
-input, textarea, select { font-family:inherit; font-size:15.5px; color:var(--ink); }
-input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outline-offset:-1px; }
+
+/* 입력칸 글씨는 16px 아래로 내리지 않습니다.
+   아이폰 사파리는 16px 미만 입력칸에 커서가 들어가면 화면을 제멋대로 확대해서,
+   칸이 스무 개쯤 되는 등록 화면에서는 확대·축소가 계속 반복됩니다. */
+input, textarea, select { font-family:inherit; font-size:16px; color:var(--ink); }
+
+/* ── 포커스 ──
+   마우스로 누를 때는 테두리가 생기지 않고, 키보드(Tab)로 옮겨 다닐 때만 보입니다. */
+:focus { outline:none; }
+:focus-visible {
+  outline:2.5px solid var(--pink-dark);
+  outline-offset:2px;
+  border-radius:6px;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset:1px; }
+
+/* 움직임을 줄이도록 설정한 분에게는 애니메이션을 끕니다 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
 
 #app { max-width:520px; margin:0 auto; min-height:100vh; background:var(--white); position:relative; padding-bottom:88px; }
 @media (min-width:560px){ #app { box-shadow:0 0 40px rgba(0,0,0,.06); } }
@@ -71,13 +96,32 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .icon-btn { width:36px; height:36px; border-radius:50%; background:#F2F2F2; color:var(--ink); font-size:18px; display:flex; align-items:center; justify-content:center; transition:transform .12s; }
 .icon-btn:active { transform:scale(.92); }
 
-.stats-row { display:flex; gap:7px; margin-top:15px; }
-.stat-box { flex:1; background:var(--white); border-radius:var(--radius-sm); padding:9px 4px; text-align:center; cursor:pointer; border:1.5px solid var(--line); transition:border-color .15s; }
-.stat-box.active { border-color:var(--pink-dark); }
+/* ── 통계 ──
+   왼쪽 한 칸은 '사람 수', 오른쪽 세 칸은 '매칭 건수'로 세는 단위가 다릅니다.
+   그냥 네 칸을 나란히 두면 '전체 12명 중 3명 성사'처럼 잘못 읽히기 때문에,
+   가운데에 선을 넣고 오른쪽 묶음에 '진행 중인 매칭'이라는 이름을 붙여 갈라놨습니다. */
+.stats-row { display:flex; align-items:stretch; gap:7px; margin-top:15px; }
+.stat-box {
+  flex:1; min-width:0; background:var(--white); border-radius:var(--radius-sm);
+  padding:9px 4px; text-align:center; cursor:pointer;
+  border:1.5px solid var(--line); transition:border-color .15s, background .15s;
+}
+.stat-box.active { border-color:var(--pink-dark); background:#FFF3F8; }
 .stat-num { font-size:21px; font-weight:800; color:var(--pink-dark); line-height:1.2; }
 .stat-box[data-stat="exchanging"] .stat-num { color:var(--blue-mid); }
 .stat-box[data-stat="some"] .stat-num { color:var(--orange); }
-.stat-label { font-size:12.5px; color:var(--gray); }
+.stat-label { display:block; font-size:12.5px; color:var(--gray); }
+
+.stat-side { flex:3; min-width:0; }
+.stat-side-label {
+  font-size:11.5px; font-weight:700; color:var(--gray-mid);
+  text-align:center; margin-bottom:3px; letter-spacing:-.3px;
+}
+.stat-side-boxes { display:flex; gap:7px; }
+.stat-side-boxes .stat-box { padding:6px 4px; }
+.stat-solo { display:flex; flex-direction:column; justify-content:center; }
+/* 왼쪽(사람)과 오른쪽(매칭)을 가르는 선 */
+.stat-divider { width:1px; background:var(--line); margin:2px 3px; flex-shrink:0; }
 
 /* ── 뷰 공통 ── */
 .view { display:none; padding:14px 18px 20px; }
@@ -87,15 +131,48 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 
 /* ── 검색 & 필터 ── */
 .search-bar { display:flex; align-items:center; gap:8px; background:var(--gray-bg); border-radius:var(--radius-sm); padding:0 14px; margin-bottom:10px; }
-.search-bar input { flex:1; border:none; background:none; padding:11px 0; font-size:15.5px; }
-.search-bar input:focus { outline:none; }
+.search-bar input { flex:1; border:none; background:none; padding:11px 0; font-size:16px; }
 .search-bar i { color:var(--gray); font-size:18px; }
 .filter-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
-.chip { border-radius:20px; padding:6px 14px; font-size:14px; font-weight:500; background:var(--gray-bg); color:#6A6A6A; transition:all .15s; white-space:nowrap; }
+.chip { border-radius:20px; padding:8px 14px; min-height:38px; display:inline-flex; align-items:center; font-size:14px; font-weight:500; background:var(--gray-bg); color:#6A6A6A; transition:all .15s; white-space:nowrap; }
 .chip.active { background:var(--pink-dark); color:var(--white); font-weight:600; }
-.filter-selects { display:flex; gap:6px; margin-bottom:12px; align-items:center; }
-.mini-select { border:1.5px solid var(--line); border-radius:10px; padding:6px 8px; font-size:14px; background:var(--white); color:#6A6A6A; flex:1; }
-.view-toggle { width:36px; height:33px; border-radius:10px; border:1.5px solid var(--line); color:var(--pink-dark); font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--white); }
+
+/* ── 후보 목록의 필터 ──
+   성별(하나만 고름)과 상태(여러 성격의 토글)는 성격이 다른 조건인데
+   예전에는 똑같이 생긴 알약 버튼 여덟 개가 한 줄에 섞여 있었습니다.
+   이제 성별은 붙어 있는 세그먼트, 상태는 테두리형 토글로 모양을 갈라놓고
+   '상태'라는 이름표를 붙여, 무엇을 고르는 자리인지 한눈에 보이게 합니다. */
+.filter-bar { display:flex; gap:6px; align-items:center; margin-bottom:10px; }
+.seg { display:flex; background:var(--gray-bg); border-radius:10px; padding:3px; gap:2px; flex-shrink:0; }
+.seg-btn {
+  padding:7px 13px; min-height:34px; border-radius:8px;
+  font-size:14px; font-weight:600; color:var(--gray); white-space:nowrap;
+  transition:background .15s, color .15s;
+}
+.seg-btn.active { background:var(--white); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.10); }
+.mini-select { border:1.5px solid var(--line); border-radius:10px; padding:6px 8px; font-size:16px; background:var(--white); color:#6A6A6A; flex:1; min-width:0; }
+.view-toggle { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--line); color:var(--pink-dark); font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--white); }
+
+.filter-block { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.filter-label { flex-shrink:0; font-size:12.5px; font-weight:700; color:var(--gray-mid); }
+.chip-row { display:flex; gap:6px; flex-wrap:wrap; min-width:0; }
+.chip.toggle { background:var(--white); border:1.5px solid var(--line); color:var(--gray); padding:6px 12px; }
+.chip.toggle.active { background:var(--pink-soft); border-color:var(--pink-dark); color:var(--pink-dark); font-weight:700; }
+.chip.toggle.danger.active { background:#FDECE7; border-color:#C13515; color:#C13515; }
+
+/* 지금 무엇으로 걸러 보고 있는지 + 한 번에 푸는 버튼 */
+.filter-summary {
+  display:flex; align-items:center; gap:8px;
+  background:var(--gray-bg); border-radius:var(--radius-sm);
+  padding:8px 8px 8px 12px; margin-bottom:10px;
+}
+.filter-summary-text { flex:1; min-width:0; font-size:13.5px; color:var(--gray); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.filter-summary-text b { color:var(--ink); font-weight:700; }
+.filter-reset {
+  flex-shrink:0; display:inline-flex; align-items:center; gap:4px;
+  background:var(--white); border:1.5px solid var(--line); border-radius:20px;
+  padding:6px 12px; font-size:13px; font-weight:700; color:var(--pink-dark);
+}
 
 /* ── 후보 카드 (리스트뷰) ── */
 .c-card { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:13px 14px; margin-bottom:9px; cursor:pointer; transition:border-color .15s; position:relative; background:var(--white); }
@@ -136,13 +213,19 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .empty { text-align:center; padding:52px 20px; }
 .empty svg { margin-bottom:12px; opacity:.9; }
 .empty-text { font-size:16px; font-weight:600; color:#6A6A6A; }
-.empty-sub { font-size:14px; color:var(--gray-mid); margin-top:4px; }
+.empty-sub { font-size:14px; color:var(--gray); margin-top:4px; }
+/* 필터 때문에 비어 있는 경우에는 여기서 바로 풀 수 있게 */
+.empty-action {
+  display:inline-flex; align-items:center; gap:5px; margin-top:14px;
+  background:var(--pink-soft); color:var(--pink-dark);
+  border-radius:20px; padding:9px 16px; font-size:14px; font-weight:700;
+}
 
 /* ── 등록 뷰 ── */
 .seg-tabs { display:flex; gap:6px; margin-bottom:16px; }
 .seg-tab { flex:1; border-radius:var(--radius-sm); padding:9px 4px; font-size:14.5px; font-weight:600; background:var(--gray-bg); color:#6A6A6A; text-align:center; }
 .seg-tab.active { background:var(--pink-dark); color:var(--white); }
-.paste-area { width:100%; min-height:170px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:13px 15px; font-size:14.5px; line-height:1.8; resize:vertical; background:var(--gray-bg); font-family:inherit; }
+.paste-area { width:100%; min-height:170px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:13px 15px; font-size:16px; line-height:1.8; resize:vertical; background:var(--gray-bg); font-family:inherit; }
 .hint-text { font-size:13.5px; color:var(--gray); margin-bottom:8px; }
 .btn { width:100%; border-radius:var(--radius-md); padding:13px; font-size:16px; font-weight:700; transition:transform .12s, opacity .15s; display:flex; align-items:center; justify-content:center; gap:7px; }
 .btn:active { transform:scale(.98); }
@@ -152,6 +235,7 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .btn.soft { background:var(--pink-soft); color:var(--pink-dark); }
 .btn.ghost { background:var(--white); border:1.5px solid #DDDDDD; color:var(--ink); padding:11.5px 13px; }
 .btn.danger-soft { background:#FDECE7; color:#C13515; }
+.btn.danger-solid { background:#C13515; color:var(--white); }
 .btn-row { display:flex; gap:8px; }
 .btn-row .btn { flex:1; }
 
@@ -160,9 +244,14 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .form-section-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
 .form-grid .full { grid-column:1/-1; }
-.f-field label { display:block; font-size:13.5px; color:var(--gray); margin-bottom:4px; font-weight:500; }
+.f-field label, .f-field .f-label { display:block; font-size:13.5px; color:var(--gray); margin-bottom:4px; font-weight:500; }
+/* 눈에는 안 보이지만 스크린리더는 읽는 이름표 */
+.sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
 .f-field input, .f-field select, .f-field textarea {
-  width:100%; border:1.5px solid var(--line); border-radius:10px; padding:9px 11px; font-size:15px; background:var(--white);
+  width:100%; border:1.5px solid var(--line); border-radius:10px; padding:10px 11px; font-size:16px; background:var(--white);
 }
 .f-field textarea { resize:vertical; min-height:64px; line-height:1.6; }
 .gender-toggle { display:flex; gap:8px; }
@@ -176,10 +265,18 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .photo-add-btn { width:64px; height:64px; border-radius:var(--radius-sm); border:1.5px dashed var(--gray-mid); color:var(--gray); font-size:22px; display:flex; align-items:center; justify-content:center; background:var(--gray-bg); }
 .photo-thumb-wrap.main .photo-thumb { outline:2px solid var(--pink-dark); outline-offset:1px; }
 .photo-main-tag { position:absolute; bottom:3px; left:50%; transform:translateX(-50%); background:var(--pink-dark); color:#fff; font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:6px; white-space:nowrap; pointer-events:none; }
-.photo-move { position:absolute; top:50%; transform:translateY(-50%); width:17px; height:26px; background:rgba(0,0,0,.55); color:#fff; font-size:13.5px; display:flex; align-items:center; justify-content:center; }
-.photo-move.l { left:0; border-radius:0 5px 5px 0; }
-.photo-move.r { right:0; border-radius:5px 0 0 5px; }
+/* 사진 순서 화살표 — 17px 짜리는 손가락으로 누르기 어려워서 눌리는 범위를 넓혔습니다
+   (보이는 크기는 그대로 두고, 투명한 여백으로만 넓힙니다) */
+.photo-move { position:absolute; top:0; bottom:0; width:26px; background:none; color:#fff; font-size:15px; display:flex; align-items:center; justify-content:center; }
+.photo-move::before {
+  content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:22px; height:32px; background:rgba(0,0,0,.55); border-radius:5px;
+}
+.photo-move i { position:relative; z-index:1; }
+.photo-move.l { left:-2px; }
+.photo-move.r { right:-2px; }
 .photo-move[disabled] { display:none; }
+.photo-del { width:24px; height:24px; }
 
 /* ── 파싱 결과 ── */
 .parse-result { margin-top:16px; }
@@ -227,7 +324,7 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .threads-link:hover { text-decoration:underline; }
 
 .promo-link-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
-.promo-link-row input { flex:1; border:1.5px solid var(--line); border-radius:10px; padding:9px 12px; font-size:14px; min-width:0; }
+.promo-link-row input { flex:1; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; font-size:16px; min-width:0; }
 .promo-open {
   flex-shrink:0; display:flex; align-items:center; justify-content:center;
   width:38px; height:38px; border-radius:10px; background:var(--blue-soft); color:var(--blue-dark); font-size:17px;
@@ -276,6 +373,9 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 }
 .nav-fab .fab:active { transform:scale(.92); }
 .nav-fab p { font-size:12px; margin-top:2px; color:var(--gray-mid); font-weight:500; }
+/* 등록 화면에 있을 때도 '여기 있다'는 표시가 남아 있어야 합니다 */
+.nav-fab.active p { color:var(--pink-dark); font-weight:700; }
+.nav-fab.active .fab { box-shadow:0 0 0 4px var(--pink-soft), 0 4px 14px rgba(253,21,105,.35); }
 .nav-ic { position:relative; display:inline-block; line-height:1; }
 .nav-badge {
   position:absolute; top:-4px; right:-9px; min-width:16px; height:16px; padding:0 4px;
@@ -329,7 +429,9 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .modal-bg.open { opacity:1; pointer-events:auto; }
 .modal-sheet {
   width:100%; max-width:520px; background:var(--white); border-radius:26px 26px 0 0;
-  max-height:92vh; overflow-y:auto; padding:10px 20px 34px;
+  max-height:92vh; overflow-y:auto;
+  /* 아이폰 홈 인디케이터에 맨 아래 버튼이 가리지 않게 여백을 더 줍니다 */
+  padding:10px 20px calc(34px + env(safe-area-inset-bottom));
   transform:translateY(40px); transition:transform .22s;
   overscroll-behavior-y:contain;
 }
@@ -398,25 +500,75 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .d-nextup .reco-item { background:var(--white); }
 .d-nextup .d-desc { margin-bottom:0; }
 
-/* ── PC에서 넓게 보기 ── */
+/* ═══════════════════════════════════════
+   PC에서 넓게 보기
+
+   휴대폰에서는 모든 창이 아래에서 올라오는 바텀시트지만,
+   PC에서는 화면 한가운데 뜨는 넓은 창으로 바뀝니다.
+   예전에는 후보·매칭·매칭맺기 세 개만 넓어지고 신청서·후기·거절기록은
+   520px 짜리 시트 그대로여서, 같은 앱 안에서 창 폭이 제각각이었습니다.
+   이제 여덟 개 창이 모두 같은 규칙으로 넓어집니다.
+═══════════════════════════════════════ */
 @media (min-width:900px) {
-  #detailModal, #createMatchModal, #matchModal { align-items:center; }
-  #detailModal .modal-sheet, #createMatchModal .modal-sheet, #matchModal .modal-sheet {
-    border-radius:24px; max-height:88vh; transform:none; padding:18px 24px 28px;
+  .modal-bg { align-items:center; padding:24px; }
+  .modal-sheet {
+    border-radius:24px; max-height:88vh; transform:none;
+    padding:22px 28px 28px;
+    box-shadow:0 18px 60px rgba(0,0,0,.22);
   }
-  #detailModal .modal-sheet { max-width:1000px; }
-  #createMatchModal .modal-sheet { max-width:780px; }
-  #matchModal .modal-sheet { max-width:640px; }
+  .modal-bg.open .modal-sheet { animation:sheet-pop .18s cubic-bezier(0,0,.2,1); }
+  @keyframes sheet-pop { from { opacity:0; transform:translateY(8px) scale(.99); } to { opacity:1; transform:none; } }
+
+  /* 창마다 담는 내용의 양이 달라서 폭도 따로 줍니다 */
+  #detailModal .modal-sheet      { max-width:1080px; }
+  #createMatchModal .modal-sheet { max-width:920px;  }
+  #appModal .modal-sheet         { max-width:940px;  }
+  #reviewModal .modal-sheet      { max-width:960px;  }
+  #matchModal .modal-sheet       { max-width:720px;  }
+  #purgeModal .modal-sheet       { max-width:760px;  }
+  #rejectModal .modal-sheet      { max-width:720px;  }
+  #confirmModal .modal-sheet     { max-width:440px;  }
+
   /* PC에서는 아래로 끌어내려 닫는 손잡이가 필요 없음 */
-  #detailModal .sheet-handle, #createMatchModal .sheet-handle, #matchModal .sheet-handle { display:none; }
+  .sheet-handle { display:none; }
 
-  #detailBody { flex-direction:row; align-items:flex-start; gap:30px; }
+  /* 후보 상세: 왼쪽 사진+프로필 / 오른쪽 할 일+관리 */
+  #detailBody { flex-direction:row; align-items:flex-start; gap:32px; }
   #detailBody > .d-main { display:block; flex:1 1 0; min-width:0; }
-  #detailBody > .d-side { display:block; flex:0 0 350px; min-width:0; }
-  #detailBody .d-track img { height:clamp(240px, 44vh, 340px); }
+  #detailBody > .d-side { display:block; flex:0 0 360px; min-width:0; }
+  #detailBody .d-track img { height:clamp(240px, 46vh, 380px); }
 
-  /* 매칭 맺기: 목록을 길게 보여줘서 스크롤을 줄임 */
-  #createMatchModal .pick-list { max-height:50vh; }
+  /* 신청서 상세도 같은 방식으로 두 칸 */
+  #appBody { display:flex; flex-direction:row; align-items:flex-start; gap:32px; }
+  #appBody > .a-main { flex:1 1 0; min-width:0; }
+  #appBody > .a-side { flex:0 0 320px; min-width:0; }
+  #appBody .d-track img { height:clamp(240px, 42vh, 340px); }
+
+  /* 후기 관리: 왼쪽에서 올리고 오른쪽에서 확인 */
+  #reviewBody { display:flex; flex-direction:row; align-items:flex-start; gap:28px; }
+  #reviewBody > .rv-left  { flex:0 0 380px; min-width:0; }
+  #reviewBody > .rv-right { flex:1 1 0; min-width:0; }
+  #reviewBody > .rv-right > .d-section-title:first-child { margin-top:0; }
+
+  /* 매칭 맺기 · 거절 기록: 목록을 길게 보여줘서 스크롤을 줄임 */
+  #createMatchModal .pick-list { max-height:52vh; }
+  #rejectModal .pick-list { max-height:40vh; }
+
+  /* 정리할 신청서가 많을 때 한눈에 */
+  #purgeList { max-height:52vh; overflow-y:auto; }
+}
+
+/* 큰 모니터에서는 한 번 더 시원하게 */
+@media (min-width:1360px) {
+  #detailModal .modal-sheet      { max-width:1240px; }
+  #createMatchModal .modal-sheet { max-width:1040px; }
+  #appModal .modal-sheet         { max-width:1040px; }
+  #reviewModal .modal-sheet      { max-width:1100px; }
+  #detailBody > .d-side { flex:0 0 400px; }
+  #detailBody .d-actions { grid-template-columns:repeat(4, minmax(0,1fr)); }
+  /* 넓어진 만큼 후기 목록은 두 줄로 흘려보냅니다 */
+  #reviewBody > .rv-right #rvList { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; align-content:start; }
+  #reviewBody > .rv-right #rvList .rvm-item.editing { grid-column:1/-1; }
 }
 
 /* ── 후기 관리 ── */
@@ -438,7 +590,7 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .rvm-box { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:14px 15px; margin-bottom:14px; }
 .rvm-stat-grid { display:flex; flex-direction:column; gap:7px; }
 .rvm-stat-row { display:flex; gap:7px; }
-.rvm-stat-row input { border:1.5px solid var(--line); border-radius:10px; padding:9px 11px; font-size:15px; min-width:0; background:var(--white); }
+.rvm-stat-row input { border:1.5px solid var(--line); border-radius:10px; padding:10px 11px; font-size:16px; min-width:0; background:var(--white); }
 .rvm-stat-num { flex:0 0 84px; text-align:center; font-weight:700; }
 .rvm-stat-label { flex:1; }
 
@@ -472,9 +624,9 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .rvm-note { font-size:14px; color:#3F3F3F; line-height:1.5; margin-bottom:8px; }
 .rvm-tools { display:flex; gap:5px; flex-wrap:wrap; }
 .rvm-btn {
-  display:flex; align-items:center; gap:3px;
+  display:flex; align-items:center; gap:3px; min-height:34px;
   font-size:12.5px; font-weight:600; color:var(--gray);
-  background:var(--gray-bg); border-radius:8px; padding:5px 9px;
+  background:var(--gray-bg); border-radius:8px; padding:5px 10px;
 }
 .rvm-btn i { font-size:14.5px; }
 .rvm-btn:disabled { opacity:.35; cursor:not-allowed; }
@@ -551,7 +703,7 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .pick-label.m { color:var(--ink); }
 .pick-label.f { color:var(--pink-mid); }
 .pick-list { border:1.5px solid var(--line); border-radius:var(--radius-sm); max-height:230px; overflow-y:auto; }
-.pick-item { padding:9px 11px; font-size:14.5px; border-bottom:1px solid var(--gray-bg); cursor:pointer; }
+.pick-item { padding:11px; min-height:46px; font-size:14.5px; border-bottom:1px solid var(--gray-bg); cursor:pointer; }
 .pick-item:last-child { border-bottom:none; }
 .pick-item .sub { font-size:12.5px; color:var(--gray-mid); display:block; }
 .pick-item.sel { background:#F2F2F2; font-weight:700; }
@@ -567,7 +719,7 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .rej-item .rej-meta { font-size:12.5px; color:var(--gray-mid); }
 .rej-item .rej-reason { font-size:13px; color:var(--gray); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .rej-item .rej-body { min-width:0; flex:1; }
-.rej-del { width:26px; height:26px; border-radius:50%; background:var(--gray-bg); color:var(--gray-mid); font-size:14.5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.rej-del { width:32px; height:32px; border-radius:50%; background:var(--gray-bg); color:var(--gray-mid); font-size:14.5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .rej-dir { font-size:11.5px; font-weight:700; padding:2px 7px; border-radius:20px; flex-shrink:0; }
 .rej-dir.out { background:var(--orange-soft); color:var(--cream-dark); }
 .rej-dir.in { background:var(--gray-bg); color:var(--gray); }
@@ -608,7 +760,29 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .cand-hist-date { margin-left:auto; font-size:12.5px; color:var(--gray-mid); flex-shrink:0; }
 
 /* ── 관리자 메모 ── */
-.admin-memo-input { width:100%; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; font-size:14.5px; min-height:76px; resize:vertical; line-height:1.6; background:#FFFFFF; }
+.admin-memo-input { width:100%; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px; font-size:16px; min-height:76px; resize:vertical; line-height:1.6; background:#FFFFFF; }
+
+/* ═══════════════════════════════════════
+   확인 창 (브라우저 기본 confirm 대신 쓰는 바텀시트)
+
+   삭제·블랙리스트·매칭 종료처럼 되돌리기 어려운 순간에 뜹니다.
+   예전에는 브라우저 기본 팝업이라 앱 분위기와 따로 놀았고,
+   줄바꿈이 섞인 긴 문장이 그대로 노출됐습니다.
+═══════════════════════════════════════ */
+#confirmModal { z-index:150; }              /* 다른 모달 위에 떠야 함 */
+#confirmModal .modal-sheet { max-width:460px; padding-top:22px; }
+.cf-title { font-size:19px; font-weight:800; color:var(--ink); margin-bottom:8px; }
+.cf-desc { font-size:15px; line-height:1.65; color:#3F3F3F; white-space:pre-wrap; }
+.cf-list {
+  background:var(--gray-bg); border-radius:var(--radius-sm);
+  padding:11px 13px; margin-top:10px;
+  font-size:14px; line-height:1.6; color:#3F3F3F; white-space:pre-wrap;
+  max-height:180px; overflow-y:auto;
+}
+.cf-warn { display:flex; gap:7px; align-items:flex-start; margin-top:12px; font-size:13.5px; color:#C13515; font-weight:600; line-height:1.5; }
+.cf-warn i { font-size:16px; flex-shrink:0; margin-top:1px; }
+.cf-actions { display:flex; gap:8px; margin-top:20px; }
+.cf-actions .btn { flex:1; }
 
 /* ── 토스트 ── */
 #toast {
@@ -651,5 +825,26 @@ input:focus, textarea:focus, select:focus { outline:2px solid var(--pink); outli
 .gate-title { font-size:26px; font-weight:800; color:var(--pink-dark); margin:14px 0 3px; }
 .gate-sub { font-size:14.5px; color:var(--cream-dark); margin-bottom:22px; }
 .gate-box input { width:100%; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:13px 15px; font-size:17px; text-align:center; margin-bottom:10px; background:var(--white); }
+/* 세션을 확인하는 아주 짧은 순간에 로그인 상자가 번쩍이지 않게, 확인이 끝나면 켭니다 */
+#gate.checking .gate-box { visibility:hidden; }
+.gate-pw { position:relative; }
+.gate-pw input { margin-bottom:0; padding-right:46px; }
+.gate-pw-toggle {
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  width:38px; height:38px; border-radius:10px; color:var(--gray);
+  font-size:19px; display:flex; align-items:center; justify-content:center;
+}
 
+/* 스크롤바 — 휴대폰에서는 숨기고, 마우스를 쓰는 화면에서는 보여줍니다.
+   전부 숨겨두면 PC에서 긴 창에 스크롤이 더 있는지 알 수가 없습니다. */
 ::-webkit-scrollbar { width:0; height:0; }
+@media (pointer:fine) {
+  .modal-sheet::-webkit-scrollbar, .pick-list::-webkit-scrollbar,
+  #purgeList::-webkit-scrollbar, .cf-list::-webkit-scrollbar { width:10px; height:10px; }
+  .modal-sheet::-webkit-scrollbar-thumb, .pick-list::-webkit-scrollbar-thumb,
+  #purgeList::-webkit-scrollbar-thumb, .cf-list::-webkit-scrollbar-thumb {
+    background:#D6D6D6; border-radius:8px; border:3px solid var(--white);
+  }
+  .modal-sheet::-webkit-scrollbar-thumb:hover, .pick-list::-webkit-scrollbar-thumb:hover,
+  #purgeList::-webkit-scrollbar-thumb:hover { background:#BDBDBD; }
+}
