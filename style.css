@@ -38,7 +38,23 @@
   --radius-lg: 22px;
   --radius-md: 16px;
   --radius-sm: 12px;
+
+  /* ── 간격 ──
+     예전에는 8·10·12·14px 스페이서가 자리마다 뒤섞여 있어서 위아래 리듬이 들쭉날쭉했습니다.
+     이제 아래 다섯 단계만 씁니다.
+       1 라벨↔입력처럼 붙어 있는 것   2 버튼끼리   3 문구↔박스(기본)
+       4 덩어리 사이                  5 큰 구획 */
+  --sp-1: 6px;
+  --sp-2: 10px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 32px;
 }
+
+/* 사이를 벌리는 빈 칸. 예전의 <div style="height:8px"> 들을 이걸로 통일했습니다 */
+.gap-sm { height:var(--sp-2); }
+.gap    { height:var(--sp-3); }
+.gap-lg { height:var(--sp-4); }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html { font-size:18px; }
@@ -62,14 +78,38 @@ button { font-family:inherit; cursor:pointer; border:none; background:none; }
 input, textarea, select { font-family:inherit; font-size:16px; color:var(--ink); }
 
 /* ── 포커스 ──
-   마우스로 누를 때는 테두리가 생기지 않고, 키보드(Tab)로 옮겨 다닐 때만 보입니다. */
+   예전에는 모든 요소(*)에 걸어둬서, 크롬이 스크롤되는 상자에도 초점을 주는 바람에
+   사진 캐러셀·목록·모달 같은 '누르지도 않은 곳'에 분홍 테두리가 잔뜩 생겼습니다.
+   이제 실제로 누를 수 있는 것들만 지정합니다. */
 :focus { outline:none; }
-:focus-visible {
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+[tabindex="0"]:focus-visible {
   outline:2.5px solid var(--pink-dark);
   outline-offset:2px;
   border-radius:6px;
 }
-input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset:1px; }
+
+/* 글씨를 쓰는 칸은 테두리 색으로 알려줍니다.
+   (글자칸은 마우스로 눌러도 :focus-visible 이 켜지는 규칙이라, 아웃라인을 쓰면
+    칸을 누를 때마다 굵은 테두리가 튀어나옵니다. 신청 폼과 같은 방식으로 맞췄어요) */
+.f-field input:focus, .f-field textarea:focus, .f-field select:focus,
+.paste-area:focus, .admin-memo-input:focus,
+.promo-link-row input:focus, .rvm-stat-row input:focus,
+.mini-select:focus, .gate-box input:focus {
+  outline:none;
+  border-color:var(--pink-dark);
+}
+
+/* 초점을 코드로 옮겨주는 자리(모달 본문)나 스크롤되는 상자에는 테두리를 그리지 않습니다 */
+.modal-sheet:focus, .modal-sheet:focus-visible,
+[tabindex="-1"]:focus, [tabindex="-1"]:focus-visible,
+.d-track:focus, .d-track:focus-visible,
+.pick-list:focus, .pick-list:focus-visible,
+.trail-path:focus, .trail-path:focus-visible,
+#purgeList:focus, #purgeList:focus-visible,
+.chip-row:focus, .chip-row:focus-visible { outline:none; }
 
 /* 움직임을 줄이도록 설정한 분에게는 애니메이션을 끕니다 */
 @media (prefers-reduced-motion: reduce) {
@@ -126,16 +166,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* ── 뷰 공통 ── */
 .view { display:none; padding:14px 18px 20px; }
 .view.active { display:block; }
-.view-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.view-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--sp-4); }
 .view-title { font-size:19px; font-weight:800; color:var(--pink-dark); }
 
 /* ── 검색 & 필터 ── */
-.search-bar { display:flex; align-items:center; gap:8px; background:var(--gray-bg); border-radius:var(--radius-sm); padding:0 14px; margin-bottom:10px; }
-.search-bar input { flex:1; border:none; background:none; padding:11px 0; font-size:16px; }
+/* 검색창은 눌렀을 때 테두리가 생기지 않습니다 — 회색 바탕만으로 충분히 보이고,
+   글자를 칠 때마다 분홍 테두리가 켜지면 화면이 시끄러워집니다. */
+.search-bar { display:flex; align-items:center; gap:8px; background:var(--gray-bg); border-radius:var(--radius-sm); padding:0 14px; margin-bottom:var(--sp-3); }
+.search-bar input { flex:1; border:none; background:none; padding:12px 0; font-size:16px; }
+.search-bar input:focus, .search-bar input:focus-visible { outline:none; box-shadow:none; }
 .search-bar i { color:var(--gray); font-size:18px; }
 .filter-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
 .chip { border-radius:20px; padding:8px 14px; min-height:38px; display:inline-flex; align-items:center; font-size:14px; font-weight:500; background:var(--gray-bg); color:#6A6A6A; transition:all .15s; white-space:nowrap; }
 .chip.active { background:var(--pink-dark); color:var(--white); font-weight:600; }
+/* 칩 안에 붙는 건수 (대기 3 · 승인 12 처럼) */
+.chip-num {
+  margin-left:6px; padding:1px 6px; border-radius:20px;
+  background:rgba(0,0,0,.06); color:var(--gray);
+  font-size:12px; font-weight:700; line-height:1.5;
+}
+.chip.active .chip-num { background:rgba(255,255,255,.24); color:var(--white); }
+.chip-num.zero { opacity:.45; }
 
 /* ── 후보 목록의 필터 ──
    성별(하나만 고름)과 상태(여러 성격의 토글)는 성격이 다른 조건인데
@@ -153,7 +204,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .mini-select { border:1.5px solid var(--line); border-radius:10px; padding:6px 8px; font-size:16px; background:var(--white); color:#6A6A6A; flex:1; min-width:0; }
 .view-toggle { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--line); color:var(--pink-dark); font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--white); }
 
-.filter-block { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.filter-block { display:flex; align-items:center; gap:8px; margin-bottom:var(--sp-3); }
 .filter-label { flex-shrink:0; font-size:12.5px; font-weight:700; color:var(--gray-mid); }
 .chip-row { display:flex; gap:6px; flex-wrap:wrap; min-width:0; }
 .chip.toggle { background:var(--white); border:1.5px solid var(--line); color:var(--gray); padding:6px 12px; }
@@ -226,7 +277,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .seg-tab { flex:1; border-radius:var(--radius-sm); padding:9px 4px; font-size:14.5px; font-weight:600; background:var(--gray-bg); color:#6A6A6A; text-align:center; }
 .seg-tab.active { background:var(--pink-dark); color:var(--white); }
 .paste-area { width:100%; min-height:170px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:13px 15px; font-size:16px; line-height:1.8; resize:vertical; background:var(--gray-bg); font-family:inherit; }
-.hint-text { font-size:13.5px; color:var(--gray); margin-bottom:8px; }
+.hint-text { font-size:13.5px; color:var(--gray); line-height:1.6; margin-bottom:var(--sp-3); }
 .btn { width:100%; border-radius:var(--radius-md); padding:13px; font-size:16px; font-weight:700; transition:transform .12s, opacity .15s; display:flex; align-items:center; justify-content:center; gap:7px; }
 .btn:active { transform:scale(.98); }
 .btn:disabled { opacity:.5; }
@@ -236,15 +287,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .btn.ghost { background:var(--white); border:1.5px solid #DDDDDD; color:var(--ink); padding:11.5px 13px; }
 .btn.danger-soft { background:#FDECE7; color:#C13515; }
 .btn.danger-solid { background:#C13515; color:var(--white); }
-.btn-row { display:flex; gap:8px; }
+.btn-row { display:flex; gap:var(--sp-2); }
 .btn-row .btn { flex:1; }
 
 /* ── 폼 ── */
-.form-section { margin-bottom:18px; }
-.form-section-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.form-section { margin-bottom:var(--sp-5); }
+.form-section-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin-bottom:var(--sp-3); display:flex; align-items:center; gap:6px; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
 .form-grid .full { grid-column:1/-1; }
-.f-field label, .f-field .f-label { display:block; font-size:13.5px; color:var(--gray); margin-bottom:4px; font-weight:500; }
+.f-field label, .f-field .f-label { display:block; font-size:13.5px; color:var(--gray); margin-bottom:var(--sp-1); font-weight:500; }
 /* 눈에는 안 보이지만 스크린리더는 읽는 이름표 */
 .sr-only {
   position:absolute; width:1px; height:1px; padding:0; margin:-1px;
@@ -303,12 +354,44 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .m-heart { color:var(--orange); font-size:19px; flex-shrink:0; }
 .m-foot { display:flex; align-items:center; justify-content:space-between; margin-top:11px; padding-top:10px; border-top:1px solid var(--gray-bg); }
 .m-date { font-size:13px; color:var(--gray-mid); }
-.m-memo-preview { font-size:13.5px; color:var(--gray); margin-top:8px; background:var(--gray-bg); border-radius:10px; padding:8px 11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.m-memo-preview { font-size:13.5px; color:var(--gray); margin-top:var(--sp-3); background:var(--gray-bg); border-radius:10px; padding:10px 12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── 끝난 매칭 카드 ──
+   진행 중인 카드와 일부러 다르게 생겼습니다. 여기서 궁금한 건 두 사람의 얼굴이 아니라
+   '누가 왜 접었는지'라서, 이름은 한 줄로 눕히고 사유에 자리를 내줍니다. */
+.m-card.ended { background:#FCFCFC; }
+.me-top { display:flex; align-items:center; gap:10px; }
+.me-names { display:flex; align-items:center; gap:8px; min-width:0; flex:1; }
+.me-face {
+  width:30px; height:30px; border-radius:50%; overflow:hidden; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:#F2F2F2; color:var(--gray); font-size:15px;
+  filter:grayscale(1); opacity:.75;
+}
+.me-face.f { background:var(--pink-soft); color:var(--pink-mid); margin-left:-14px; }
+.me-face img { width:100%; height:100%; object-fit:cover; }
+.me-name { font-size:15px; font-weight:700; color:var(--gray); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.me-x { color:var(--gray-mid); font-weight:500; margin:0 2px; }
+
+.me-body { margin-top:var(--sp-3); display:flex; flex-direction:column; gap:var(--sp-2); }
+.me-reason { background:var(--orange-soft); border-radius:var(--radius-sm); padding:11px 13px; }
+.me-reason-head { font-size:13.5px; color:var(--cream-dark); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.me-reason-head b { color:var(--pink-dark); font-weight:700; }
+.me-stage { font-size:11.5px; font-weight:700; background:var(--white); color:var(--cream-dark); border-radius:20px; padding:2px 8px; }
+.me-reason-text { font-size:14px; line-height:1.55; color:#3F3F3F; margin-top:5px; white-space:pre-wrap; }
+.me-reason-text.none { color:var(--gray-mid); font-style:italic; }
+.me-reason.none-box {
+  display:flex; align-items:center; gap:7px;
+  background:var(--gray-bg); color:var(--gray); font-size:13.5px;
+}
+.me-reason.none-box i { font-size:16px; }
+
+.me-foot { display:flex; gap:var(--sp-3); margin-top:var(--sp-3); padding-top:var(--sp-2); border-top:1px solid var(--gray-bg); font-size:12.5px; color:var(--gray-mid); }
 
 /* ── 설정 뷰 ── */
-.set-card { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:15px 16px; margin-bottom:12px; }
-.set-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin-bottom:11px; display:flex; align-items:center; gap:6px; }
-.set-desc { font-size:13.5px; color:var(--gray); margin:-6px 0 10px; }
+.set-card { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:var(--sp-4) 20px; margin-bottom:var(--sp-3); }
+.set-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin-bottom:var(--sp-3); display:flex; align-items:center; gap:6px; }
+.set-desc { font-size:13.5px; color:var(--gray); line-height:1.6; margin:0 0 var(--sp-3); }
 
 /* ── 스레드 홍보 표시 ── */
 .promo-tag {
@@ -463,28 +546,28 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .d-nophoto i { font-size:30px; color:var(--orange); }
 .d-head { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
 .d-name { font-size:22px; font-weight:800; color:var(--pink-dark); }
-.d-headline { font-size:14.5px; color:var(--gray); margin-bottom:14px; }
-.d-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:16px; }
+.d-headline { font-size:14.5px; color:var(--gray); margin-bottom:var(--sp-4); }
+.d-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:var(--sp-5); }
 .d-act { border-radius:var(--radius-sm); padding:10px 2px; font-size:13px; font-weight:600; background:var(--gray-bg); color:#6A6A6A; display:flex; flex-direction:column; align-items:center; gap:4px; }
 .d-act i { font-size:19px; }
 .d-act.accent { background:var(--cream); color:var(--cream-dark); }
-.info-table { width:100%; font-size:15px; border-collapse:collapse; margin-bottom:4px; }
-.info-table td { padding:6px 0; vertical-align:top; }
+.info-table { width:100%; font-size:15px; border-collapse:collapse; margin-bottom:var(--sp-2); }
+.info-table td { padding:var(--sp-1) 0; vertical-align:top; }
 /* 라벨 칸은 글자 폭만큼만 차지하게 해서 값 쪽에 자리를 더 줌 */
 .info-table td:first-child { color:var(--gray); width:1%; white-space:nowrap; padding-right:14px; }
 .info-table td:first-child i { font-size:15.5px; vertical-align:-2px; margin-right:6px; }
 .info-table td:last-child { font-weight:500; line-height:1.55; }
-.tag-row { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 14px; }
+.tag-row { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 var(--sp-4); }
 .tag { border-radius:20px; padding:5px 12px; font-size:13.5px; font-weight:500; }
 .tag:nth-child(3n+1){ background:var(--cream); color:var(--cream-dark); }
 .tag:nth-child(3n+2){ background:var(--pink-soft); color:var(--pink-dark); }
 .tag:nth-child(3n){ background:var(--blue-soft); color:var(--blue-dark); }
-.ideal-card { background:var(--cream); border-radius:var(--radius-md); padding:14px 16px; margin:8px 0 16px; }
+.ideal-card { background:var(--cream); border-radius:var(--radius-md); padding:var(--sp-4) 20px; margin:var(--sp-4) 0; }
 .ideal-title { font-size:15px; font-weight:800; color:var(--cream-dark); margin-bottom:8px; }
 .ideal-card .info-table td:first-child { color:#6A6A6A; }
 .ideal-card .info-table td:last-child { color:#3F3F3F; }
-.d-section-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin:14px 0 6px; }
-.d-desc { font-size:15px; line-height:1.7; color:#3F3F3F; white-space:pre-wrap; }
+.d-section-title { font-size:15.5px; font-weight:800; color:var(--pink-dark); margin:var(--sp-5) 0 var(--sp-2); }
+.d-desc { font-size:15px; line-height:1.7; color:#3F3F3F; white-space:pre-wrap; margin-bottom:var(--sp-3); }
 .d-memo { background:var(--gray-bg); border-radius:var(--radius-sm); padding:11px 13px; font-size:14.5px; color:#6A6A6A; white-space:pre-wrap; }
 
 /* ── 상세 모달 레이아웃 ──
@@ -495,8 +578,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .d-blk-a { order:1; } .d-blk-b { order:2; } .d-blk-c { order:3; } .d-blk-d { order:4; }
 
 /* 지금 할 일(추천 상대 · 매칭 맺기)을 눈에 띄게 감싸는 카드 */
-.d-nextup { border:2px solid var(--pink); background:#FFF8FB; border-radius:var(--radius-md); padding:13px 14px; margin:0 0 16px; }
+.d-nextup { border:2px solid var(--pink); background:#FFF8FB; border-radius:var(--radius-md); padding:var(--sp-3) var(--sp-3) var(--sp-4); margin:0 0 var(--sp-4); }
+/* 덩어리 맨 위에 오는 제목은 위 여백을 없앱니다 (박스 안이 위만 뜨는 것 방지) */
+.d-section-title:first-child { margin-top:0; }
 .d-nextup > .d-section-title:first-child { margin-top:0; }
+/* 버튼 바로 뒤에 오는 제목은 충분히 띄웁니다 */
+.btn + .d-section-title { margin-top:var(--sp-5); }
+
+/* 입력칸을 block 으로 둡니다.
+   inline 요소로 두면 글꼴의 baseline 때문에 아래에 4~5px 짜리 유령 여백이 붙어서,
+   같은 간격을 줘도 칸마다 미묘하게 달라 보입니다. */
+.f-field input, .f-field textarea, .f-field select,
+.paste-area, .admin-memo-input, .tl-edit-input,
+.rvm-stat-row input, .promo-link-row input, .gate-box input { display:block; }
 .d-nextup .reco-item { background:var(--white); }
 .d-nextup .d-desc { margin-bottom:0; }
 
@@ -587,7 +681,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .rvm-more-toggle { display:inline-flex; align-items:center; gap:5px; font-size:13.5px; font-weight:600; color:var(--gray); padding:6px 2px; }
 .rvm-more-toggle i { font-size:14px; }
 
-.rvm-box { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:14px 15px; margin-bottom:14px; }
+.rvm-box { border:1.5px solid var(--line); border-radius:var(--radius-md); padding:var(--sp-4) 20px; margin-bottom:var(--sp-4); }
 .rvm-stat-grid { display:flex; flex-direction:column; gap:7px; }
 .rvm-stat-row { display:flex; gap:7px; }
 .rvm-stat-row input { border:1.5px solid var(--line); border-radius:10px; padding:10px 11px; font-size:16px; min-width:0; background:var(--white); }
@@ -662,7 +756,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .trail-now { flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--gray-mid); padding-right:2px; }
 
 /* ── 매칭 상세 ── */
-.status-steps { display:flex; gap:6px; margin:14px 0; }
+.status-steps { display:flex; gap:6px; margin:var(--sp-4) 0; }
 
 /* 매칭 상세 위쪽의 두 사람 카드 — 얼굴이나 이름을 누르면 프로필이 열립니다 */
 .m-pair.big { gap:10px; margin-bottom:4px; align-items:stretch; }
@@ -714,7 +808,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .rej-who-btn { border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:11px 8px; font-size:14.5px; font-weight:600; color:#6A6A6A; background:var(--white); text-align:center; line-height:1.35; }
 .rej-who-btn .sub { display:block; font-size:12px; font-weight:500; color:var(--gray-mid); margin-top:2px; }
 .rej-who-btn.on { border-color:var(--orange); background:var(--orange-soft); color:var(--cream-dark); }
-.rej-item { display:flex; align-items:center; gap:9px; padding:9px 11px; border:1.5px solid var(--line); border-radius:var(--radius-sm); margin-bottom:7px; cursor:pointer; background:var(--white); }
+.rej-item { display:flex; align-items:center; gap:9px; padding:11px; border:1.5px solid var(--line); border-radius:var(--radius-sm); margin-bottom:var(--sp-2); cursor:pointer; background:var(--white); }
 .rej-item .rej-name { font-size:15px; font-weight:700; color:var(--ink); flex-shrink:0; }
 .rej-item .rej-meta { font-size:12.5px; color:var(--gray-mid); }
 .rej-item .rej-reason { font-size:13px; color:var(--gray); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -733,8 +827,8 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .pick-item .fit-tag.bad { background:var(--gray-bg); color:var(--gray-mid); }
 
 /* ── 매칭 타임라인 ── */
-.tl { margin:8px 0 4px; padding-left:4px; }
-.tl-item { display:flex; gap:11px; position:relative; padding-bottom:14px; }
+.tl { margin:var(--sp-2) 0 0; padding-left:4px; }
+.tl-item { display:flex; align-items:flex-start; gap:11px; position:relative; padding-bottom:var(--sp-3); }
 .tl-item:last-child { padding-bottom:2px; }
 .tl-item:not(:last-child)::before { content:''; position:absolute; left:4px; top:15px; bottom:0; width:1.5px; background:var(--line); }
 .tl-dot { width:9px; height:9px; border-radius:50%; background:var(--pink); margin-top:5px; flex-shrink:0; position:relative; z-index:1; }
@@ -742,19 +836,46 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .tl-dot.some { background:var(--orange); }
 .tl-dot.success { background:var(--ink); }
 .tl-dot.ended { background:var(--gray-mid); }
-.tl-body { min-width:0; }
+.tl-body { min-width:0; flex:1; }
 .tl-date { font-size:12.5px; color:var(--gray-mid); }
 .tl-text { font-size:14px; color:#6A6A6A; white-space:pre-wrap; line-height:1.5; }
 
+/* 기록 고치기 · 지우기 — 평소에는 옅게 있다가, 그 줄에 손이 가면 또렷해집니다 */
+.tl-tools { display:flex; gap:4px; flex-shrink:0; opacity:.35; transition:opacity .15s; }
+.tl-item:hover .tl-tools, .tl-tools:focus-within { opacity:1; }
+@media (pointer:coarse) { .tl-tools { opacity:.7; } }
+.tl-btn {
+  width:32px; height:32px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--gray-bg); color:var(--gray); font-size:15px;
+}
+.tl-btn.danger:hover { background:#FDECE7; color:#C13515; }
+.tl-note { margin:var(--sp-2) 0 0; font-size:12.5px; }
+.tl-edit { margin-top:var(--sp-2); }
+.tl-edit-input {
+  width:100%; min-height:64px; resize:vertical; line-height:1.6;
+  border:1.5px solid var(--pink-dark); border-radius:10px; padding:10px 11px;
+  font-size:16px; background:var(--white); margin-bottom:var(--sp-2);
+}
+
 /* ── 추천 상대 ── */
-.reco-item { display:flex; align-items:center; gap:10px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:10px 12px; margin-bottom:8px; cursor:pointer; background:var(--white); }
+.reco-item { display:flex; align-items:center; gap:10px; border:1.5px solid var(--line); border-radius:var(--radius-md); padding:12px; margin-bottom:var(--sp-2); cursor:pointer; background:var(--white); }
 .reco-item:active { border-color:var(--pink); }
 .reco-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
 .reco-tag { font-size:12px; background:var(--pink-soft); color:var(--pink-dark); border-radius:10px; padding:2px 8px; font-weight:600; }
 .reco-tag.bad { background:#FDECE7; color:#C13515; }
+/* 추천 상대 더 보기 / 접기 */
+.reco-more {
+  display:flex; align-items:center; justify-content:center; gap:5px;
+  width:100%; min-height:42px; margin-top:var(--sp-1);
+  border:1.5px dashed var(--line); border-radius:var(--radius-md);
+  background:var(--white); color:var(--gray); font-size:13.5px; font-weight:700;
+}
+.reco-more:hover { border-color:var(--pink); color:var(--pink-dark); }
+.reco-more i { font-size:16px; }
 
 /* ── 후보 매칭 기록 ── */
-.cand-hist { display:flex; align-items:center; gap:8px; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:9px 12px; margin-bottom:7px; cursor:pointer; font-size:14.5px; }
+.cand-hist { display:flex; align-items:center; gap:8px; border:1.5px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; margin-bottom:var(--sp-2); cursor:pointer; font-size:14.5px; }
 .cand-hist:active { border-color:var(--pink); }
 .cand-hist-name { font-weight:700; }
 .cand-hist-date { margin-left:auto; font-size:12.5px; color:var(--gray-mid); flex-shrink:0; }

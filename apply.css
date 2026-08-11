@@ -91,6 +91,13 @@ label.lb { display:block; font-size:18px; font-weight:700; letter-spacing:-.7px;
 label.lb .req { color:var(--accent); margin-left:2px; }
 label.lb .opt { font-size:15.5px; font-weight:500; color:var(--muted); margin-left:6px; letter-spacing:-.7px; }
 .help { font-size:15.5px; font-weight:500; color:var(--muted); letter-spacing:-.7px; margin:-4px 0 8px; }
+/* 꼭 읽고 넘어가셔야 하는 안내 (예: 최근 6개월 이내 사진) */
+.notice-warn {
+  background:var(--tint); border-radius:var(--r-action);
+  padding:14px 16px; margin:0 0 12px;
+  font-size:15.5px; font-weight:500; line-height:1.5; color:var(--fg);
+}
+.notice-warn b { color:var(--accent); font-weight:700; }
 
 input[type=text], input[type=tel], input[type=number], textarea, select {
   width:100%; background:var(--canvas); color:var(--fg);

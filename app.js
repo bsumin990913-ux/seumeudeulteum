@@ -899,25 +899,42 @@ function matchScore(a, b) {
   if (a.religion && b.religion && a.religion.slice(0, 2) === b.religion.slice(0, 2)) { score += 1; reasons.push({ ok: true, label: '같은 종교' }); }
   return { score, reasons };
 }
+// 추천 상대를 몇 명까지 펼쳐 볼지. 다른 사람의 상세를 열면 다시 접힙니다.
+const RECO_FOLDED = 3, RECO_MAX = 20;
+let recoOpen = false;
+let recoDetailId = null;
+
 function renderRecoSection(c) {
   if (activeMatchOf(c.id)) return ''; // 이미 매칭 진행 중이면 추천 생략
   // 이미 거절 기록이 있는 상대는 추천에서 뺌
   const targets = DB.data.candidates.filter(t =>
     t.gender !== c.gender && !t.archived && !t.blacklisted && !activeMatchOf(t.id) && !rejectionsBetween(c.id, t.id).length);
-  const scored = targets.map(t => Object.assign({ t }, matchScore(c, t)))
+  const all = targets.map(t => Object.assign({ t }, matchScore(c, t)))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
-  if (!scored.length) return '';
-  return `<div class="d-section-title"><i class="ti ti-sparkles"></i> 추천 상대</div>` + scored.map(x => `
+    .slice(0, RECO_MAX);
+  if (!all.length) return '';
+  const scored = recoOpen ? all : all.slice(0, RECO_FOLDED);
+  const rest = all.length - scored.length;
+
+  // 더 볼 사람이 남았으면 펼치는 버튼을, 다 펼쳤으면 접는 버튼을 붙입니다
+  const more = rest > 0
+    ? `<button type="button" class="reco-more" id="recoMoreBtn"><i class="ti ti-chevron-down"></i>추천 상대 ${rest}명 더 보기</button>`
+    : (recoOpen && all.length > RECO_FOLDED
+        ? `<button type="button" class="reco-more" id="recoFoldBtn"><i class="ti ti-chevron-up"></i>접기</button>`
+        : '');
+
+  return `<div class="d-section-title"><i class="ti ti-sparkles"></i> 추천 상대
+      <span class="c-meta" style="font-weight:500">${all.length}명</span></div>`
+    + scored.map(x => `
     <div class="reco-item" data-rid="${x.t.id}">
       ${avatarHtml(x.t, 'c-avatar')}
       <div style="min-width:0;flex:1">
         <div style="font-size:15.5px;font-weight:700">${escHtml(x.t.name)} <span class="c-meta">${escHtml(metaLine(x.t))}</span></div>
         <div class="reco-tags">${x.reasons.map(r => `<span class="reco-tag ${r.ok ? '' : 'bad'}">${escHtml(r.label)}</span>`).join('')}</div>
       </div>
-      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" style="background:var(--peach-soft);color:var(--peach-mid);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
-    </div>`).join('');
+      <button class="icon-btn reco-link" data-rid="${x.t.id}" title="이어주기" aria-label="${escHtml(x.t.name)}님과 이어주기" style="background:var(--pink-soft);color:var(--pink-dark);flex-shrink:0"><i class="ti ti-heart-plus"></i></button>
+    </div>`).join('') + more;
 }
 
 // ── 후보의 전체 매칭 기록 (종료 포함) ──
@@ -1228,7 +1245,7 @@ function renderRejectionSection(cid) {
   const items = [...out.map(r => row(r, 'out')), ...inc.map(r => row(r, 'in'))].join('');
   return `<div class="d-section-title"><i class="ti ti-heart-broken"></i> 거절 기록${out.length || inc.length ? ` <span class="c-meta" style="font-weight:500">내가 ${out.length} · 나를 ${inc.length}</span>` : ''}</div>
     ${items || '<p class="d-desc" style="color:var(--gray-mid)">아직 거절 기록이 없어요</p>'}
-    <button class="btn soft" id="dRejAddBtn" style="margin-top:8px"><i class="ti ti-plus"></i> 거절 기록 추가</button>`;
+    <button class="btn soft" id="dRejAddBtn" style="margin-top:var(--sp-3)"><i class="ti ti-plus"></i> 거절 기록 추가</button>`;
 }
 
 // ═══════════════════════════════════════
@@ -1275,6 +1292,7 @@ function openDetail(id, keepTrail) {
   const c = candOf(id);
   if (!c) return;
   if (!keepTrail) Trail.clear();
+  if (recoDetailId !== id) { recoOpen = false; recoDetailId = id; }   // 다른 사람을 열면 추천 목록은 다시 접습니다
   const st = candStatus(c);
   const pinnedNow = Pin.has(id);
   const photos = c.photos || [];
@@ -1351,7 +1369,7 @@ function openDetail(id, keepTrail) {
              <button class="btn soft" id="dGoMatchBtn"><i class="ti ti-heart"></i> ${escHtml(candName(activeM.male_id))} ♥ ${escHtml(candName(activeM.female_id))} 보기</button>`
           : `${recoHtml || `<div class="d-section-title" style="margin-top:0"><i class="ti ti-sparkles"></i> 추천 상대</div>
                <p class="d-desc" style="font-size:14px;color:var(--gray-mid)">조건이 맞는 상대를 아직 못 찾았어요. 아래 버튼으로 직접 고를 수 있어요.</p>`}
-             <div style="height:10px"></div>
+             <div class="gap"></div>
              <button class="btn primary" id="dMatchBtn"><i class="ti ti-heart-plus"></i> 매칭 맺어주기</button>`}
       </div>
     </div>
@@ -1366,25 +1384,25 @@ function openDetail(id, keepTrail) {
         <input id="dPromoUrl" type="url" placeholder="홍보 글 주소(URL)를 붙여넣어 주세요" value="${escHtml(c.promo_url || '')}">
         ${c.promo_url ? `<a class="promo-open" href="${escHtml(c.promo_url)}" target="_blank" rel="noopener" title="홍보 글 열기"><i class="ti ti-external-link"></i></a>` : ''}
       </div>
-      <button class="btn soft" id="dPromoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 홍보 링크 저장</button>
-      <div style="height:14px"></div>
+      <button class="btn soft" id="dPromoSaveBtn" style="margin-top:var(--sp-2)"><i class="ti ti-check"></i> 홍보 링크 저장</button>
+      <div class="gap-lg"></div>
 
       <div class="d-section-title"><i class="ti ti-notes"></i> 관리자 메모</div>
       <textarea id="dAdminMemo" class="admin-memo-input" placeholder="예: 5월에 ○○님과 소개 → 애프터 없이 종료. 지인 소개로 등록됨.">${escHtml(c.admin_memo || '')}</textarea>
-      <button class="btn soft" id="dMemoSaveBtn" style="margin-top:8px"><i class="ti ti-check"></i> 메모 저장</button>
-      <div style="height:14px"></div>
+      <button class="btn soft" id="dMemoSaveBtn" style="margin-top:var(--sp-2)"><i class="ti ti-check"></i> 메모 저장</button>
+      <div class="gap-lg"></div>
 
       ${renderCandHistory(id)}
       ${renderRejectionSection(id)}
-      <div style="height:14px"></div>
+      <div class="gap-lg"></div>
 
       <button class="btn ghost" id="dArchiveBtn">${c.archived ? '보류 해제하기' : '보류 처리하기'}</button>
-      <p class="hint-text" style="margin:6px 0 0">${c.archived
+      <p class="hint-text" style="margin:var(--sp-2) 0 0">${c.archived
         ? '지금은 보류 상태예요. 해제하면 추천·매칭 후보로 다시 나타납니다.'
         : '잠시 쉬어가는 분에게 쓰세요. 목록에는 그대로 남지만 추천 상대와 매칭 상대 고르기에서는 빠집니다. 언제든 되돌릴 수 있어요.'}</p>
-      <div style="height:12px"></div>
+      <div class="gap"></div>
       <button class="btn ghost" id="dBlacklistBtn" style="color:#C13515;border-color:#C13515">${c.blacklisted ? '블랙리스트 해제하기' : '블랙리스트 등록하기'}</button>
-      <p class="hint-text" style="margin:6px 0 0">후보 목록에서 숨기고 추천·매칭에서도 완전히 제외해요. 블랙리스트 필터에서 다시 볼 수 있습니다.</p>
+      <p class="hint-text" style="margin:var(--sp-2) 0 0">후보 목록에서 숨기고 추천·매칭에서도 완전히 제외해요. 블랙리스트 필터에서 다시 볼 수 있습니다.</p>
     </div>
    </div>
   `;
@@ -1477,6 +1495,9 @@ function openDetail(id, keepTrail) {
       openDetail(parseInt(el.dataset.rid, 10), true);
     });
   });
+  const recoMore = $('recoMoreBtn'), recoFold = $('recoFoldBtn');
+  if (recoMore) recoMore.onclick = () => { recoOpen = true; openDetail(id, true); };
+  if (recoFold) recoFold.onclick = () => { recoOpen = false; openDetail(id, true); };
   $('detailBody').querySelectorAll('.reco-link').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -1857,7 +1878,7 @@ async function handleExcelFile(file) {
           ${parsed.slice(0, 8).map(p => `<tr><td>${escHtml(p.name)} (${p.gender === 'm' ? '남' : '여'})</td><td>${escHtml([p.birth_year ? p.birth_year + '년생' : '', p.job, p.region].filter(Boolean).join(' · '))}</td></tr>`).join('')}
           ${parsed.length > 8 ? `<tr><td colspan="2" style="color:var(--gray-mid)">외 ${parsed.length - 8}명…</td></tr>` : ''}
         </table>
-        <div style="height:10px"></div>
+        <div class="gap"></div>
         <button class="btn primary" id="excelConfirmBtn"><i class="ti ti-check"></i> ${parsed.length}명 모두 등록하기</button>`;
       $('excelConfirmBtn').addEventListener('click', async () => {
         const btn = $('excelConfirmBtn');
@@ -1882,6 +1903,76 @@ async function handleExcelFile(file) {
 // ═══════════════════════════════════════
 //  매칭
 // ═══════════════════════════════════════
+// ── 진행 중인 매칭 카드 ──
+// 두 사람을 좌우로 마주 보게 놓고, 하트로 이어져 있다는 걸 보여줍니다.
+function liveCardHtml(m) {
+  const mc = candOf(m.male_id), fc = candOf(m.female_id);
+  return `<div class="m-card" data-mid="${m.id}">
+    <div class="m-pair">
+      <div class="m-person">
+        <div class="m-avatar">${mc && mc.photos && mc.photos[0] ? photoImg(mc.photos[0], '') : '<i class="ti ti-leaf"></i>'}</div>
+        <div style="min-width:0"><div class="m-name">${escHtml(candName(m.male_id))}</div><div class="m-meta">${mc ? escHtml([ageLabel(mc), mc.job].filter(Boolean).join(' · ')) : ''}</div></div>
+      </div>
+      <i class="ti ti-heart m-heart"></i>
+      <div class="m-person right">
+        <div class="m-avatar f">${fc && fc.photos && fc.photos[0] ? photoImg(fc.photos[0], '') : '<i class="ti ti-flower"></i>'}</div>
+        <div style="min-width:0"><div class="m-name">${escHtml(candName(m.female_id))}</div><div class="m-meta">${fc ? escHtml([ageLabel(fc), fc.job].filter(Boolean).join(' · ')) : ''}</div></div>
+      </div>
+    </div>
+    ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:13.5px"></i> ${escHtml(m.memo)}</div>` : ''}
+    <div class="m-foot">
+      <span class="m-date">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</span>
+      <span class="badge ${m.status}">${STATUS_LABEL[m.status]}</span>
+    </div>
+  </div>`;
+}
+
+// ── 끝난 매칭 카드 ──
+// 끝난 매칭에서 정작 알고 싶은 건 '누가 왜 접었는지'입니다.
+// 그래서 두 사람을 마주 보게 두는 대신 한 줄로 눕히고, 그 아래에
+// 거절 기록을 사유까지 펼쳐 놓습니다. 상세를 열지 않아도 목록에서 바로 읽혀요.
+function endedCardHtml(m) {
+  const mc = candOf(m.male_id), fc = candOf(m.female_id);
+  const face = (c, side) => {
+    const photo = c && c.photos && c.photos[0];
+    return `<span class="me-face ${side === 'f' ? 'f' : ''}">${photo ? photoImg(photo, '') : `<i class="ti ti-${side === 'f' ? 'flower' : 'leaf'}"></i>`}</span>`;
+  };
+  const rejs = rejectionsBetween(m.male_id, m.female_id);
+  const ended = lastStatusAt(m, 'ended');
+
+  const reasons = rejs.length
+    ? rejs.map(r => `<div class="me-reason">
+        <div class="me-reason-head">
+          <b>${escHtml(candName(r.from_id))}</b>님이 접었어요
+          <span class="me-stage">${escHtml(REJECT_STAGE[r.stage] || r.stage)}</span>
+        </div>
+        ${r.reason ? `<p class="me-reason-text">${escHtml(r.reason)}</p>` : '<p class="me-reason-text none">사유를 남기지 않았어요</p>'}
+      </div>`).join('')
+    : `<div class="me-reason none-box"><i class="ti ti-info-circle"></i>거절 기록 없이 종료되었어요</div>`;
+
+  return `<div class="m-card ended" data-mid="${m.id}">
+    <div class="me-top">
+      <div class="me-names">
+        ${face(mc, 'm')}${face(fc, 'f')}
+        <span class="me-name">${escHtml(candName(m.male_id))} <span class="me-x">×</span> ${escHtml(candName(m.female_id))}</span>
+      </div>
+      <span class="badge ended">종료</span>
+    </div>
+    <div class="me-body">${reasons}</div>
+    ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:13.5px"></i> ${escHtml(m.memo)}</div>` : ''}
+    <div class="me-foot">
+      <span>${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</span>
+      ${ended ? `<span>${String(ended).slice(0, 10).replace(/-/g, '.')} 종료</span>` : ''}
+    </div>
+  </div>`;
+}
+
+// 타임라인에서 그 상태로 바뀐 마지막 시각을 찾습니다
+function lastStatusAt(m, status) {
+  const hit = (m.history || []).filter(h => h.t === 'status' && h.to === status).pop();
+  return hit ? hit.at : null;
+}
+
 function renderMatches() {
   const box = $('matchList');
   let list = DB.data.matches.slice();
@@ -1890,27 +1981,7 @@ function renderMatches() {
     box.innerHTML = emptyHtml('해당하는 매칭이 없어요', '위의 [매칭 맺기] 버튼으로 두 사람을 이어주세요');
     return;
   }
-  box.innerHTML = list.map(m => {
-    const mc = candOf(m.male_id), fc = candOf(m.female_id);
-    return `<div class="m-card" data-mid="${m.id}">
-      <div class="m-pair">
-        <div class="m-person">
-          <div class="m-avatar">${mc && mc.photos && mc.photos[0] ? photoImg(mc.photos[0], '') : '<i class="ti ti-leaf"></i>'}</div>
-          <div style="min-width:0"><div class="m-name">${escHtml(candName(m.male_id))}</div><div class="m-meta">${mc ? escHtml([ageLabel(mc), mc.job].filter(Boolean).join(' · ')) : ''}</div></div>
-        </div>
-        <i class="ti ti-heart m-heart"></i>
-        <div class="m-person right">
-          <div class="m-avatar f">${fc && fc.photos && fc.photos[0] ? photoImg(fc.photos[0], '') : '<i class="ti ti-flower"></i>'}</div>
-          <div style="min-width:0"><div class="m-name">${escHtml(candName(m.female_id))}</div><div class="m-meta">${fc ? escHtml([ageLabel(fc), fc.job].filter(Boolean).join(' · ')) : ''}</div></div>
-        </div>
-      </div>
-      ${m.memo ? `<div class="m-memo-preview"><i class="ti ti-note" style="font-size:13.5px"></i> ${escHtml(m.memo)}</div>` : ''}
-      <div class="m-foot">
-        <span class="m-date">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</span>
-        <span class="badge ${m.status}">${STATUS_LABEL[m.status]}</span>
-      </div>
-    </div>`;
-  }).join('');
+  box.innerHTML = list.map(m => m.status === 'ended' ? endedCardHtml(m) : liveCardHtml(m)).join('');
   box.querySelectorAll('[data-mid]').forEach(el => {
     el.addEventListener('click', () => openMatchDetail(parseInt(el.dataset.mid, 10)));
   });
@@ -1922,16 +1993,91 @@ function fmtDateTime(iso) {
   if (isNaN(d)) return '';
   return `${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+// 타임라인.
+// '매칭 시작'은 매칭이 만들어진 시각 그 자체라 손댈 수 없고,
+// 그 뒤의 기록은 실수로 눌러 생긴 것을 지울 수 있습니다.
+// 메모 기록은 글자를 고칠 수도 있어요.
 function renderTimeline(m) {
-  const evs = [{ t: 'created', at: m.created_at }, ...(m.history || [])];
-  return `<div class="d-section-title" style="margin-top:16px"><i class="ti ti-timeline-event"></i> 진행 타임라인</div>
-  <div class="tl">${evs.map(ev => `
-    <div class="tl-item"><div class="tl-dot ${ev.t === 'status' ? (ev.to || '') : ''}"></div>
+  const hist = m.history || [];
+  return `<div class="d-section-title"><i class="ti ti-timeline-event"></i> 진행 타임라인</div>
+  <div class="tl">
+    <div class="tl-item">
+      <div class="tl-dot"></div>
+      <div class="tl-body">
+        <div class="tl-date">${fmtDateTime(m.created_at)}</div>
+        <div class="tl-text">매칭 시작</div>
+      </div>
+    </div>
+    ${hist.map((ev, i) => `
+    <div class="tl-item" data-tli="${i}">
+      <div class="tl-dot ${ev.t === 'status' ? (ev.to || '') : ''}"></div>
       <div class="tl-body">
         <div class="tl-date">${fmtDateTime(ev.at)}</div>
-        <div class="tl-text">${escHtml(ev.t === 'created' ? '매칭 시작' : ev.t === 'status' ? `상태 변경 → ${STATUS_LABEL[ev.to] || ev.to}` : ev.text || '')}</div>
+        <div class="tl-text">${escHtml(ev.t === 'status' ? `상태 변경 → ${STATUS_LABEL[ev.to] || ev.to}` : ev.text || '')}</div>
       </div>
-    </div>`).join('')}</div>`;
+      <div class="tl-tools">
+        ${ev.t === 'memo' ? `<button type="button" class="tl-btn" data-tledit="${i}" title="이 기록 고치기" aria-label="이 기록 고치기"><i class="ti ti-edit"></i></button>` : ''}
+        <button type="button" class="tl-btn danger" data-tldel="${i}" title="이 기록 지우기" aria-label="이 기록 지우기"><i class="ti ti-x"></i></button>
+      </div>
+    </div>`).join('')}
+  </div>
+  ${hist.length ? '<p class="hint-text tl-note">잘못 눌러 생긴 기록은 지울 수 있어요. 기록만 사라지고 <b>지금 상태는 그대로</b>입니다.</p>' : ''}`;
+}
+
+// 타임라인 기록 고치기 · 지우기
+function bindTimeline(m) {
+  const save = async hist => {
+    if (!(await DB.updateMatch(m.id, { history: hist }))) return false;
+    openMatchDetail(m.id, true);
+    return true;
+  };
+
+  $('matchBody').querySelectorAll('[data-tldel]').forEach(btn => {
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const i = parseInt(btn.dataset.tldel, 10);
+      const ev = (m.history || [])[i];
+      if (!ev) return;
+      const what = ev.t === 'status' ? `상태 변경 → ${STATUS_LABEL[ev.to] || ev.to}` : (ev.text || '메모');
+      if (!await ask({
+        title: '이 기록을 지울까요?',
+        desc: '타임라인에서만 사라지고, 지금 매칭 상태는 그대로 남습니다.',
+        list: `${fmtDateTime(ev.at)}\n${what}`,
+        okText: '지우기', danger: true
+      })) return;
+      const hist = (m.history || []).slice();
+      hist.splice(i, 1);
+      if (await save(hist)) toast('기록을 지웠어요');
+    };
+  });
+
+  $('matchBody').querySelectorAll('[data-tledit]').forEach(btn => {
+    btn.onclick = e => {
+      e.stopPropagation();
+      const i = parseInt(btn.dataset.tledit, 10);
+      const item = btn.closest('.tl-item');
+      const ev = (m.history || [])[i];
+      if (!ev || !item || item.querySelector('.tl-edit')) return;
+      const box = document.createElement('div');
+      box.className = 'tl-edit';
+      box.innerHTML = `<textarea class="tl-edit-input"></textarea>
+        <div class="btn-row">
+          <button class="btn ghost tl-edit-cancel">취소</button>
+          <button class="btn primary tl-edit-save"><i class="ti ti-check"></i> 저장</button>
+        </div>`;
+      box.querySelector('.tl-edit-input').value = ev.text || '';
+      item.querySelector('.tl-body').appendChild(box);
+      box.querySelector('.tl-edit-input').focus();
+      box.querySelector('.tl-edit-cancel').onclick = () => box.remove();
+      box.querySelector('.tl-edit-save').onclick = async () => {
+        const text = box.querySelector('.tl-edit-input').value.trim();
+        if (!text) { toast('내용을 적어주세요'); return; }
+        const hist = (m.history || []).slice();
+        hist[i] = Object.assign({}, hist[i], { text });
+        if (await save(hist)) toast('기록을 고쳤어요');
+      };
+    };
+  });
 }
 
 // 매칭 상세 위쪽의 두 사람 카드. 얼굴이나 이름을 누르면 그 사람 프로필이 열립니다.
@@ -1964,7 +2110,7 @@ function openMatchDetail(id, keepTrail) {
       <i class="ti ti-heart m-heart"></i>
       ${matchPersonHtml(fc, m.female_id, 'f')}
     </div>
-    <p class="m-date" style="text-align:center;margin-top:6px">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</p>
+    <p class="m-date" style="text-align:center;margin:var(--sp-2) 0 var(--sp-4)">${String(m.created_at).slice(0, 10).replace(/-/g, '.')} 시작</p>
     ${rejectionsBetween(m.male_id, m.female_id).map(r => `<div class="rej-warn"><i class="ti ti-heart-broken"></i><div><b>${escHtml(candName(r.from_id))}</b>님이 <b>${escHtml(candName(r.to_id))}</b>님을 거절 · ${escHtml(rejectLabel(r))}${r.reason ? `<br>${escHtml(r.reason)}` : ''}</div></div>`).join('')}
     <div class="status-steps">
       ${steps.map(s => `<button class="step ${m.status === s ? 'on ' + s : ''}" data-st="${s}">${STATUS_LABEL[s]}</button>`).join('')}
@@ -1973,13 +2119,14 @@ function openMatchDetail(id, keepTrail) {
       <label>진행 메모</label>
       <textarea id="matchMemoInput" placeholder="예: 사진 교환 완료, 이번 주말 첫 만남 예정">${escHtml(m.memo || '')}</textarea>
     </div>
-    <div style="height:10px"></div>
+    <div class="gap"></div>
     <button class="btn dark" id="matchMemoSaveBtn"><i class="ti ti-check"></i> 메모 저장</button>
     ${renderTimeline(m)}
-    <div style="height:12px"></div>
+    <div class="gap"></div>
     <button class="btn danger-soft" id="matchDelBtn"><i class="ti ti-trash"></i> 매칭 삭제</button>
   `;
   Trail.bind('matchBody');
+  bindTimeline(m);
   // 두 사람 카드 → 그 사람 프로필 (돌아올 수 있게 발자국을 남김)
   $('matchBody').querySelectorAll('[data-open-cand]').forEach(el => {
     el.addEventListener('click', () => {
@@ -2163,8 +2310,25 @@ function whenLabel(iso) {
   return String(iso).slice(0, 10).replace(/-/g, '.');
 }
 
+// 상태별 건수를 칩 안에 바로 보여줍니다 (대기 3 · 승인 12 · 반려 1 · 전체 16)
+function renderAppCounts() {
+  const all = DB.data.applications;
+  const n = {
+    pending: all.filter(a => a.status === 'pending').length,
+    approved: all.filter(a => a.status === 'approved').length,
+    rejected: all.filter(a => a.status === 'rejected').length,
+    all: all.length
+  };
+  document.querySelectorAll('#appChips .chip-num').forEach(el => {
+    const v = n[el.dataset.count] || 0;
+    el.textContent = v;
+    el.classList.toggle('zero', v === 0);
+  });
+}
+
 function renderApplications() {
   const box = $('appList');
+  renderAppCounts();
   let list = DB.data.applications.slice();
   if (S.appFilter !== 'all') list = list.filter(a => a.status === S.appFilter);
   if (!list.length) {
@@ -2254,21 +2418,21 @@ function openAppDetail(id) {
 
     <div class="d-section-title"><i class="ti ti-notes"></i> 검토 메모</div>
     <textarea id="appMemo" class="admin-memo-input" placeholder="반려 사유나 확인한 내용을 적어두세요">${escHtml(a.review_memo || '')}</textarea>
-    <div style="height:12px"></div>
+    <div class="gap"></div>
 
     ${a.status === 'pending' ? `
       <button class="btn primary" id="appApproveBtn"><i class="ti ti-user-check"></i> 승인하고 후보로 등록</button>
-      <div style="height:8px"></div>
+      <div class="gap-sm"></div>
       <button class="btn ghost" id="appRejectBtn"><i class="ti ti-user-x"></i> 반려 처리</button>
     ` : `
       ${linked ? `<button class="btn soft" id="appGoCandBtn"><i class="ti ti-user"></i> 등록된 후보 보기 (${escHtml(linked.name)})</button>`
                : a.status === 'approved' ? `<p class="hint-text">승인 처리됐지만 연결된 후보를 찾을 수 없어요 (삭제된 것 같아요)</p>` : ''}
-      <div style="height:8px"></div>
+      <div class="gap-sm"></div>
       <button class="btn ghost" id="appReopenBtn"><i class="ti ti-rotate"></i> 대기 상태로 되돌리기</button>
     `}
-    <div style="height:8px"></div>
+    <div class="gap-sm"></div>
     <button class="btn soft" id="appMemoSaveBtn"><i class="ti ti-check"></i> 메모만 저장</button>
-    <div style="height:8px"></div>
+    <div class="gap-sm"></div>
     <button class="btn danger-soft" id="appDelBtn"><i class="ti ti-trash"></i> 신청서 삭제</button>
    </div>
   `;
@@ -2724,11 +2888,11 @@ const Rev = {
     return `<div class="rvm-item editing" data-rvid="${r.id}">
       <img class="rvm-thumb" src="${escHtml(r.image_url)}" alt="">
       <div class="rvm-body">
-        <div class="filter-row" data-rvestage style="margin-bottom:8px">
+        <div class="filter-row" data-rvestage style="margin-bottom:var(--sp-2)">
           ${chip('success', '성사')}${chip('meet', '첫 만남 후')}${chip('progress', '진행 중')}${chip('etc', '기타')}
         </div>
         <div class="f-field"><textarea data-rvenote placeholder="주선자 코멘트">${escHtml(r.note || '')}</textarea></div>
-        <div class="form-grid" style="margin:8px 0">
+        <div class="form-grid" style="margin:var(--sp-3) 0">
           <div class="f-field"><label>누구인지</label><input data-rvewho value="${escHtml(r.who || '')}" placeholder="예: 96년생 · 여성 · 대구"></div>
           <div class="f-field"><label>날짜</label><input data-rvedate value="${escHtml(r.shown_at || '')}" placeholder="예: 2026.07"></div>
         </div>

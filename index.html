@@ -118,7 +118,7 @@
     <section id="regPaste">
       <p class="hint-text">카톡으로 받은 프로필을 그대로 붙여넣고 [자동 인식]을 누르세요. 인식된 내용은 아래 폼에서 확인·수정 후 저장합니다.</p>
       <textarea class="paste-area" id="pasteInput" placeholder="나이 : 97년생&#10;키 : 160cm (마른체형)&#10;거주지 : 대구시 북구&#10;직업 : 간호사&#10;…"></textarea>
-      <div style="height:10px"></div>
+      <div class="gap"></div>
       <button class="btn dark" id="parseBtn"><i class="ti ti-wand"></i> 자동 인식</button>
     </section>
 
@@ -188,7 +188,7 @@
 
       <div class="form-section">
         <div class="form-section-title"><i class="ti ti-photo"></i> 사진</div>
-        <p class="hint-text" style="margin-top:-4px">맨 앞 사진이 목록에 보이는 <b>대표 사진</b>이에요. 사진 좌우의 화살표로 순서를 바꿀 수 있어요.</p>
+        <p class="hint-text">맨 앞 사진이 목록에 보이는 <b>대표 사진</b>이에요. 사진 좌우의 화살표로 순서를 바꿀 수 있어요.</p>
         <div class="photo-add-row" id="photoRow">
           <button type="button" class="photo-add-btn" id="photoAddBtn"><i class="ti ti-plus"></i></button>
         </div>
@@ -229,7 +229,7 @@
         <button class="btn ghost" id="importBtn"><i class="ti ti-upload"></i> 복원 (병합)</button>
       </div>
       <input type="file" id="importFile" accept=".json" class="hidden">
-      <div style="height:8px"></div>
+      <div class="gap-sm"></div>
       <button class="btn ghost" id="migratePhotosBtn"><i class="ti ti-cloud-up"></i> 예전 사진을 스토리지로 이전</button>
     </div>
 
@@ -240,7 +240,7 @@
         <button class="btn soft" id="copyApplyBtn"><i class="ti ti-copy"></i> 주소 복사</button>
         <button class="btn ghost" id="openApplyBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-mid);font-weight:600">개인정보처리방침 열어보기</a></p>
+      <p class="set-desc" style="margin:var(--sp-3) 0 0"><a href="privacy.html" target="_blank" rel="noopener" style="color:var(--pink-mid);font-weight:600">개인정보처리방침 열어보기</a></p>
     </div>
 
     <div class="set-card">
@@ -259,7 +259,7 @@
         <button class="btn soft" id="reviewManageBtn"><i class="ti ti-photo-plus"></i> 후기 올리기</button>
         <button class="btn ghost" id="openReviewsBtn"><i class="ti ti-external-link"></i> 미리 보기</button>
       </div>
-      <p class="set-desc" style="margin:10px 0 0">올리기 전에 <b>당사자 동의</b>를 받고, 알아볼 수 있는 부분은 가려주세요.</p>
+      <p class="set-desc" style="margin:var(--sp-3) 0 0">올리기 전에 <b>당사자 동의</b>를 받고, 알아볼 수 있는 부분은 가려주세요.</p>
     </div>
 
     <div class="set-card">
@@ -277,7 +277,6 @@
   <!-- ═══════════ 신청 관리 뷰 ═══════════ -->
   <main class="view" id="view-applications">
     <div class="view-header"><div class="view-title">신청 관리</div></div>
-    <p class="hint-text">공개 신청 폼(<code>/apply</code>)으로 들어온 신청서예요. 승인하면 후보 목록에 등록됩니다.</p>
     <div class="purge-bar hidden" id="purgeBar">
       <i class="ti ti-clock-exclamation"></i>
       <div class="purge-text">
@@ -287,10 +286,10 @@
       <button class="purge-go" id="purgeOpenBtn">정리하기</button>
     </div>
     <div class="filter-row" id="appChips">
-      <button class="chip active" data-as="pending">대기</button>
-      <button class="chip" data-as="approved">승인</button>
-      <button class="chip" data-as="rejected">반려</button>
-      <button class="chip" data-as="all">전체</button>
+      <button class="chip active" data-as="pending">대기<span class="chip-num" data-count="pending">0</span></button>
+      <button class="chip" data-as="approved">승인<span class="chip-num" data-count="approved">0</span></button>
+      <button class="chip" data-as="rejected">반려<span class="chip-num" data-count="rejected">0</span></button>
+      <button class="chip" data-as="all">전체<span class="chip-num" data-count="all">0</span></button>
     </div>
     <div id="appList"></div>
   </main>
@@ -333,9 +332,9 @@
 <div class="modal-bg" id="createMatchModal" role="dialog" aria-modal="true" aria-label="매칭 맺기">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
-    <div class="view-title" style="margin-bottom:4px"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
+    <div class="view-title" style="margin-bottom:var(--sp-2)"><i class="ti ti-heart-plus"></i> 매칭 맺기</div>
     <p class="hint-text">한쪽에서 먼저 한 명을 고르면, 반대쪽 목록이 <b>잘 맞는 순서</b>로 다시 정렬돼요.</p>
-    <div class="search-bar" style="margin-bottom:12px">
+    <div class="search-bar">
       <i class="ti ti-search"></i>
       <input type="text" id="pickSearchInput" placeholder="이름, 직업, 지역 검색" autocomplete="off">
     </div>
@@ -365,7 +364,7 @@
 <div class="modal-bg" id="purgeModal" role="dialog" aria-modal="true" aria-label="오래된 신청서 정리">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
-    <div class="view-title" style="margin-bottom:4px"><i class="ti ti-clock-exclamation"></i> 오래된 신청서 정리</div>
+    <div class="view-title" style="margin-bottom:var(--sp-2)"><i class="ti ti-clock-exclamation"></i> 오래된 신청서 정리</div>
     <p class="hint-text" id="purgeHint"></p>
     <div class="purge-tools">
       <button class="chip active" id="purgeAllBtn">전체 선택</button>
@@ -373,9 +372,9 @@
       <span class="purge-sel" id="purgeSel"></span>
     </div>
     <div id="purgeList"></div>
-    <div style="height:12px"></div>
+    <div class="gap"></div>
     <button class="btn danger-soft" id="purgeRunBtn"><i class="ti ti-trash"></i> 선택한 신청서 삭제</button>
-    <div style="height:8px"></div>
+    <div class="gap-sm"></div>
     <button class="btn ghost" id="purgeCancelBtn">닫기</button>
   </div>
 </div>
@@ -384,7 +383,7 @@
 <div class="modal-bg" id="reviewModal" role="dialog" aria-modal="true" aria-label="후기 관리">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
-    <div class="view-title" style="margin-bottom:4px"><i class="ti ti-message-star"></i> 후기 관리</div>
+    <div class="view-title" style="margin-bottom:var(--sp-2)"><i class="ti ti-message-star"></i> 후기 관리</div>
     <p class="hint-text">캡처를 올리고 한 줄만 적으면 끝이에요.</p>
 
     <!-- PC에서는 왼쪽에서 올리고 오른쪽에서 확인하도록 두 칸으로 나뉩니다 (style.css의 #reviewBody) -->
@@ -398,11 +397,11 @@
       <i class="ti ti-chevron-down rvm-caret"></i>
     </button>
     <div class="rvm-box hidden" id="rvStatsBox">
-      <p class="hint-text" style="margin-bottom:8px">기준 시점을 비우면 후기 페이지에서 스트립이 통째로 숨겨져요.</p>
+      <p class="hint-text">기준 시점을 비우면 후기 페이지에서 스트립이 통째로 숨겨져요.</p>
       <div class="f-field"><label for="rvStatLabel">기준 시점</label><input id="rvStatLabel" placeholder="예: 2026년 8월"></div>
-      <div style="height:8px"></div>
+      <div class="gap-sm"></div>
       <div class="rvm-stat-grid" id="rvStatRows"></div>
-      <div style="height:10px"></div>
+      <div class="gap"></div>
       <div class="btn-row">
         <button class="btn ghost" id="rvStatFillBtn"><i class="ti ti-wand"></i> 지금 수치로 채우기</button>
         <button class="btn soft" id="rvStatSaveBtn"><i class="ti ti-check"></i> 숫자 저장</button>
@@ -417,7 +416,7 @@
         <div id="rvDropHint"><i class="ti ti-photo-up"></i><span>캡처 이미지를 고르세요</span></div>
       </div>
       <input type="file" id="rvFile" accept="image/*" class="hidden">
-      <div style="height:12px"></div>
+      <div class="gap"></div>
       <div class="filter-row" id="rvStage">
         <button class="chip active" data-rvs="success">성사</button>
         <button class="chip" data-rvs="meet">첫 만남 후</button>
@@ -428,11 +427,11 @@
         <textarea id="rvNote" placeholder="예: 두 분 다 조용한 걸 좋아하셔서, 첫 만남은 카페 대신 전시회를 추천드렸어요."></textarea>
       </div>
       <button type="button" class="rvm-more-toggle" id="rvMoreToggle"><i class="ti ti-plus"></i> 누구인지 · 날짜 (선택)</button>
-      <div class="form-grid hidden" id="rvMoreFields" style="margin-top:8px">
+      <div class="form-grid hidden" id="rvMoreFields" style="margin-top:var(--sp-3)">
         <div class="f-field"><label for="rvWho">누구인지 (익명 라벨)</label><input id="rvWho" placeholder="예: 96년생 · 여성 · 대구"></div>
         <div class="f-field"><label for="rvDate">날짜</label><input id="rvDate" placeholder="예: 2026.07"></div>
       </div>
-      <div style="height:10px"></div>
+      <div class="gap"></div>
       <button class="btn primary" id="rvAddBtn" disabled><i class="ti ti-upload"></i> 후기 올리기</button>
     </div>
 
@@ -449,7 +448,7 @@
 <div class="modal-bg" id="rejectModal" role="dialog" aria-modal="true" aria-label="거절 기록">
   <div class="modal-sheet">
     <div class="sheet-handle"></div>
-    <div class="view-title" style="margin-bottom:4px" id="rejTitle"><i class="ti ti-heart-broken"></i> 거절 기록</div>
+    <div class="view-title" style="margin-bottom:var(--sp-2)" id="rejTitle"><i class="ti ti-heart-broken"></i> 거절 기록</div>
     <p class="hint-text" id="rejHint">누가 마음을 접었는지 남겨두면, 나중에 같은 조합을 다시 이어주는 실수를 막을 수 있어요.</p>
 
     <!-- 상대 고르기 (후보 상세에서 직접 추가할 때만 보임) -->
@@ -460,13 +459,13 @@
         <input type="search" id="rejSearch" placeholder="이름, 직업, 지역, 나이 검색">
       </div>
       <div class="pick-list" id="rejPickList"></div>
-      <div style="height:14px"></div>
+      <div class="gap-lg"></div>
     </div>
 
     <div class="f-field"><span class="f-label">누가 거절했나요?</span></div>
     <div class="rej-who" id="rejWho"></div>
 
-    <div style="height:14px"></div>
+    <div class="gap-lg"></div>
     <div class="f-field"><span class="f-label">어느 단계였나요?</span></div>
     <div class="filter-row" id="rejStage">
       <button class="chip active" data-st="profile">프로필 보고</button>
@@ -478,9 +477,9 @@
     <div class="f-field"><label for="rejReason">사유 (선택)</label>
       <textarea id="rejReason" placeholder="예: 거리가 멀어서 부담된다고 하심"></textarea>
     </div>
-    <div style="height:12px"></div>
+    <div class="gap"></div>
     <button class="btn primary" id="rejSaveBtn" disabled><i class="ti ti-check"></i> 기록하기</button>
-    <div style="height:8px"></div>
+    <div class="gap-sm"></div>
     <button class="btn ghost" id="rejSkipBtn">거절 없이 종료 (기록 안 함)</button>
   </div>
 </div>
