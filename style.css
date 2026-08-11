@@ -210,6 +210,10 @@ button:focus-visible,
 .chip.toggle { background:var(--white); border:1.5px solid var(--line); color:var(--gray); padding:6px 12px; }
 .chip.toggle.active { background:var(--pink-soft); border-color:var(--pink-dark); color:var(--pink-dark); font-weight:700; }
 .chip.toggle.danger.active { background:#FDECE7; border-color:#C13515; color:#C13515; }
+/* 켜진 칩 앞에 체크를 붙여, 여러 개를 함께 걸 수 있다는 걸 보이게 합니다 */
+.chip.toggle.active::before {
+  content:'\2713'; font-weight:700; margin-right:5px; font-size:12.5px; line-height:1;
+}
 
 /* 지금 무엇으로 걸러 보고 있는지 + 한 번에 푸는 버튼 */
 .filter-summary {

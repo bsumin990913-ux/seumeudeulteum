@@ -331,7 +331,7 @@ const Pin = {
 const S = {
   view: 'candidates',
   gender: 'all',
-  statusFilter: null,
+  statusFilters: new Set(),   // 상태 필터는 여러 개를 동시에 걸 수 있습니다
   search: '',
   sort: localStorage.getItem('sdt_sort') || 'latest',
   listMode: localStorage.getItem('sdt_view') || 'list',
@@ -614,24 +614,43 @@ function syncStatActive() {
   document.querySelectorAll('.stat-box').forEach(box => {
     const st = box.dataset.stat;
     const on = st === 'all'
-      ? (S.view === 'candidates' && !S.statusFilter)
+      ? (S.view === 'candidates' && !S.statusFilters.size)
       : (S.view === 'matches' && S.matchFilter === st);
     box.classList.toggle('active', on);
   });
 }
 
+// 상태 칩은 성격이 다른 두 묶음입니다.
+//   stage — 진행 단계(대기중·매칭중·보류·블랙리스트). 한 사람은 한 단계에만 속합니다.
+//   promo — 스레드 홍보 여부(홍보전·홍보완료). 진행 단계와는 상관없이 정해집니다.
+const STATUS_GROUP = {
+  candidate: 'stage', matched: 'stage', archived: 'stage', blacklist: 'stage',
+  nopromo: 'promo', promo: 'promo'
+};
+
+function matchStage(c, key) {
+  if (key === 'candidate') return candStatus(c) === 'candidate';
+  if (key === 'matched') return !!activeMatchOf(c.id);
+  if (key === 'archived') return !!c.archived;
+  if (key === 'blacklist') return !!c.blacklisted;
+  return false;
+}
+
 function filteredCandidates() {
   const q = S.search.toLowerCase();
+  const picked = [...S.statusFilters];
+  const stage = picked.filter(k => STATUS_GROUP[k] === 'stage');
+  const promo = picked.filter(k => STATUS_GROUP[k] === 'promo');
   let list = DB.data.candidates.filter(c => {
     if (S.gender !== 'all' && c.gender !== S.gender) return false;
     // 블랙리스트 탭에서만 블랙리스트 후보를 보여주고, 나머지 탭에서는 숨김
-    if (S.statusFilter === 'blacklist') { if (!c.blacklisted) return false; }
-    else if (c.blacklisted) return false;
-    if (S.statusFilter === 'candidate' && candStatus(c) !== 'candidate') return false;
-    if (S.statusFilter === 'archived' && !c.archived) return false;
-    if (S.statusFilter === 'matched' && !activeMatchOf(c.id)) return false;
-    if (S.statusFilter === 'promo' && !c.promo_url) return false;
-    if (S.statusFilter === 'nopromo' && c.promo_url) return false;
+    // 블랙리스트는 직접 고른 경우에만 보여줍니다
+    if (!stage.includes('blacklist') && c.blacklisted) return false;
+    // 같은 묶음 안에서는 '둘 중 아무거나', 다른 묶음끼리는 '둘 다'.
+    // 그래서 [대기중 + 홍보전]은 '대기중이면서 홍보 전인 사람',
+    // [대기중 + 매칭중]은 '대기중이거나 매칭중인 사람'이 됩니다.
+    if (stage.length && !stage.some(k => matchStage(c, k))) return false;
+    if (promo.length && !promo.some(k => k === 'promo' ? !!c.promo_url : !c.promo_url)) return false;
     if (q) {
       const hay = [c.name, c.job, c.region, c.description, c.personality, c.hobbies, c.mbti, c.education, c.religion, c.admin_memo, c.contact_threads, c.phone].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
@@ -679,10 +698,20 @@ const STATUS_FILTER_LABEL = {
 };
 const GENDER_LABEL = { m: '남자', f: '여자' };
 
+// 받침에 따라 '로 / 으로'를 골라줍니다. ('홍보전로' 같은 말이 나오지 않게)
+function josaRo(word) {
+  const s = String(word || '');
+  if (!s) return '로';
+  const code = s.charCodeAt(s.length - 1);
+  if (code < 0xAC00 || code > 0xD7A3) return '로';   // 한글이 아니면(따옴표 등) 기본값
+  const jong = (code - 0xAC00) % 28;
+  return (jong === 0 || jong === 8) ? '로' : '으로'; // 받침이 없거나 'ㄹ' 이면 '로'
+}
+
 function activeFilters() {
   const out = [];
   if (S.gender !== 'all') out.push(GENDER_LABEL[S.gender]);
-  if (S.statusFilter) out.push(STATUS_FILTER_LABEL[S.statusFilter] || S.statusFilter);
+  S.statusFilters.forEach(k => out.push(STATUS_FILTER_LABEL[k] || k));
   if (S.search) out.push(`"${S.search}"`);
   return out;
 }
@@ -694,13 +723,14 @@ function renderFilterSummary(shown) {
   const bar = $('filterSummary');
   bar.classList.toggle('hidden', !f.length);
   if (!f.length) return;
+  const txt = f.join(' · ');
   $('filterSummaryText').innerHTML =
-    `<b>${escHtml(f.join(' · '))}</b>로 거른 결과 ${shown}명`;
+    `<b>${escHtml(txt)}</b>${josaRo(txt)} 거른 결과 ${shown}명`;
 }
 
 function resetFilters() {
   S.gender = 'all';
-  S.statusFilter = null;
+  S.statusFilters.clear();
   S.search = '';
   $('searchInput').value = '';
   syncFilterChips();
@@ -711,7 +741,7 @@ function resetFilters() {
 function syncFilterChips() {
   document.querySelectorAll('#genderChips .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.g === S.gender));
   document.querySelectorAll('#statusChips .chip').forEach(c => {
-    const on = c.dataset.s === S.statusFilter;
+    const on = S.statusFilters.has(c.dataset.s);
     c.classList.toggle('active', on);
     c.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
@@ -3283,7 +3313,7 @@ async function init() {
       if (st === 'all') {
         // 필터를 풀었으면 목록도 다시 그려야 합니다. 예전에는 상태만 바꾸고
         // 다시 그리지 않아서, 칩은 눌린 채로 남고 화면은 그대로였어요.
-        S.statusFilter = null;
+        S.statusFilters.clear();
         syncFilterChips();
         switchView('candidates');
         renderCandidates();
@@ -3310,7 +3340,7 @@ async function init() {
   document.querySelectorAll('#statusChips .chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const s = chip.dataset.s;
-      S.statusFilter = S.statusFilter === s ? null : s;
+      if (S.statusFilters.has(s)) S.statusFilters.delete(s); else S.statusFilters.add(s);
       syncFilterChips();
       renderCandidates();
     });
